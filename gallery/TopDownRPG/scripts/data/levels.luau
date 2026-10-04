@@ -1,331 +1,242 @@
 --[[
-The puzzles. Each level is one screen with one starting position (@) and one gear (g) to collect.
+The levels of the Explorium, by id. Each level is a module of data/maps/ (see level.luau for the format).
 
-See legend.luau for the meaning of each character.
+The first floor, the Oasis:
+- sinkhole: where the explorer falls
+- camp: Wren's camp, the safe place of the oasis
+- fern_hollow: a lush cave with water, snakes and Click the ant
+- lantern_grotto: the Glowworm Grotto, behind the roots of the Fern Hollow, where the eternal lantern burns
+- dark_hollow: a maze of ledges over a chasm, pitch black without the eternal lantern
+- colonnade: the first ruins of the sea people, with Dr. Ilse and Unit-7
+- mole_den: the den of the Great Mole, and the stairs down
+
+The second floor, the Desert:
+- sunken_steps: the bottom of the stairs, a dead camp
+- anthill: the colony of the ants, the safe place of the desert
+- dry_canals: the dry irrigation of the sea people, and the gate of the Great Pump
+- bazaar: a ruined market, Mara, and the council chamber
+- pumping_station: inside the Great Pump, its three valves
+- storm_dunes: dunes swept by sandstorms, and a hidden spring
+- warden_hall: the hall of the Sun Warden, boss of the desert
+- howling_gorge: an endless storm, and the stairs down
+
+The third floor, the Wetlands:
+- mire_edge: the bottom of the stairs: lily pads, a bog, a green pool
+- nettle_clearing: the safe place of the wetlands, and Nettle's hut (nettle_hut, inside)
+- hospital_grounds, house_of_healing: the gardens and the rooms of the hospital of the sea people
+- drowned_docks: the harbor, the bell of the ferry, the storeroom of the smugglers
+- great_mire: a lake of islands; frog_isle: the island of the Frog King, boss of the wetlands
+- toxic_fen: the green lake, and the stairs down
+
+The fourth floor, the Frosted Frontier:
+- frozen_stair: the bottom of the stairs, the first braziers, the first ice
+- rimehold: the village of the Frostborn, the safe place of the frontier, and the elder's lodge (elder_lodge, inside)
+- the_glare: a frozen lake, and the icefall up to the fort
+- ice_caves: the puzzles of the ice blocks, Tamsin, the hot spring
+- old_watch, sleepers_barracks: the fort of the Watch, and its barracks
+- watch_hall: the hall of the Last Watchman, boss of the frontier
+- whiteout: a field of killing frost, the Cold Lock, and the stairs down
+
+The fifth floor, the City of the Tide:
+- seawall: the Seagate, the gatehouse on the seawall: the first view of the city, a crimson lens, the drain into the city
+- bronze_ward: the Ward, the town of the lower city: houses (their insides: water_tower, ward_home, tally_shop,
+  hall_of_waters (the Registry) and ebb_register, clock_tower, pump_house, ebb_house, ward_ruin, guard_post, warehouse),
+  the canal and its old bridge, the Water Gate to the harbor, the Foundry gate
+- diggings: the warren of the Clay under the Ward, the safe place of the city
+- dry_harbor: the harbor of the Salt, dry: the lighthouse, the guild hall and its vault (the grapnel), the gate of the
+  Tide Road (insides: harbor_office, lighthouse, salt_guild, ship_cabin)
+- hanging_gardens: the Heights, the terraces of the High Tide, the Gardener (gardener_shed), the water lock of the palace
+  gate
+- palace: the halls of the High Tide, the hall of mirrors, the Tidemother's chambers, the throne, the door of the archive
+- engine: the great machine under the palace: live plates, the great wheel, the cogs of the sluice
+- heart: the heart of the Engine, and the Tidemother, the last boss
+- archive: the Great Archive, the Chronicle of the Tide, Dr. Ilse (the ending of the Archive)
+- foundry: where the servants of bronze were cast: the Foreman, the arms of Unit-7, the vault of the shafts
+- tide_road: the shaft of the Salt, up to the surface, its gravity upside down (the ending of the Tide Road)
+- surface: the daylight, and the sea
 ]]
 const loader = require("@vectarine/loader")
-const rooms = require("./rooms")
 
-export type Level = rooms.Room & { solution: string }
+export type LevelData = {
+	name: string,
+	subtitle: string?,
+	--- The ground of "." cells (a terrain of data/terrain.luau), dirt by default
+	floor: string?,
+	darkness: number?,
+	lights: { { number } }?,
+	--- A beam of daylight falling from a hole in the ceiling: x, y of the cell it lights
+	sunbeam: { number }?,
+	--- Thin beams of daylight through cracks of the ceiling: x, y and their size (0.6 when not given). Their light is
+	--- in `lights`.
+	sunbeams: { { number } }?,
+	legend: { [string]: any }?,
+	links: { [string]: { level: string, entry: string } }?,
+	map: { string },
+	heights: { string }?,
+	--- The floor of the Explorium the level is on (1 when not set)
+	depth: number?,
+	--- A style of data/legend.luau, that changes the meaning of some symbols ("desert")
+	style: string?,
+	--- How fast the player gets thirsty, compared to the oasis (1 when not set)
+	heat: number?,
+	--- Sandstorms: `calm` and `duration` in seconds (or `always`), `wind` the direction, `strength` its push
+	storm: { calm: number?, duration: number?, always: boolean?, wind: { number }, strength: number }?,
+	--- Snow falling over the level, from 0 (none) to 1 (a blizzard): only drawn, the cold comes from the ground
+	snowfall: number?,
+	--- The silhouettes framing the screen (see foreground.luau): "interior" indoors, the style of the level otherwise
+	foreground: string?,
+	--- Decorations, rows of the same size as `map` (see data/decor.luau)
+	decor: { string }?,
+	--- Parts of the level without light: x1, y1, x2, y2 (cells, included) and their darkness (see lighting.luau)
+	darkAreas: { { number } }?,
+	--- Pitch black: the dark swallows the flashlight, only the eternal lantern lights it (see lighting.luau)
+	lightless: boolean?,
+	--- Life in the air (see ambient.luau): fireflies, butterflies and leaves (densities), glints on the water
+	ambient: { fireflies: number?, motes: number?, butterflies: number?, glints: boolean? }?,
+	--- The city: electrified floors, the circuits that feed the copper plates (see power.luau)
+	power: { { area: { number }, mode: string, period: number?, on: number?, offset: number?, breaker: string?, needs: string? } }?,
+	--- Ducts under the level, rows of the same size as `map`: any character but "." is a duct (see ducts.luau)
+	ducts: { string }?,
+	--- The Tide Road: the pull of the tide draws everything that way (tiles per second), and the world grows upside down
+	pull: { number }?,
+	--- Buildings of the city drawn as whole objects (see data/building_kinds.luau): the top-left cell of their footprint,
+	--- and the entry their door is (an exit like a digit of the map, linked in `links`). A building without `door`
+	--- shows a door nobody can reach (in the background).
+	buildings: { { kind: string, x: number, y: number, door: string?, alt: string?, altIf: string? } }?,
+}
 
 const module = loader.init() or {}
 
 module.levels = {
-	-- 1. The rat always walks towards you. Walk around the pen to guide it.
-	{
-		name = "Shepherd",
-		subtitle = "",
-		floor = "grass",
-		border = "tree",
-		map = {
-			"################",
-			"#..............#",
-			"#.____________.#",
-			"#._r......###_.#",
-			"#._###^#^.###_.#",
-			"#._######+###_.#",
-			"#.____________.#",
-			"#@.............#",
-			"##############G#",
-			"##############g#",
-			"################",
-		},
-		solution = "up up up up up up right right right right right right right right right right right right right down down down down down down down down",
-	},
-	-- 2. Rats run at you. Spikes kill them.
-	{
-		name = "Tick, Tock",
-		subtitle = "",
-		floor = "grass",
-		border = "tree",
-		map = {
-			"################",
-			"################",
-			"####.@.....#####",
-			"####.......#####",
-			"####^^^R^^^#####",
-			"####RRRR...#####",
-			"####...r...#####",
-			"####.......#####",
-			"####.....g.#####",
-			"################",
-			"################",
-		},
-		solution = "down right wait right down down down down down right right",
-	},
-	-- 3. The pickaxe opens paths... for the rat too.
-	{
-		name = "Rubble",
-		subtitle = "",
-		floor = "grass",
-		border = "tree",
-		map = {
-			"################",
-			"#......#.....g.#",
-			"#..@...R...r...#",
-			"#......#.......#",
-			"#......###^#####",
-			"#......#.......#",
-			"#......R.......#",
-			"#......#.......#",
-			"#......#.......#",
-			"#......#.......#",
-			"################",
-		},
-		solution = "down down down down right right right pickaxe right right right right left left left left up up up up right pickaxe right right up right right right right right",
-	},
-	-- 4. Two rats, one corridor, two plates. Walk straight and they both run to the end.
-	{
-		name = "Master Flute Player",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"#r.r...........#",
-			"#######^#.####.#",
-			"#########+####+#",
-			"################",
-			"#..............#",
-			"#.......@......#",
-			"#####G##########",
-			"#..............#",
-			"#............g.#",
-			"################",
-		},
-		solution = "right right right right right right wait left left wait right right wait wait wait left left left left left left left left left down down down right right right right right right right right",
-	},
-	-- 5. Dig the path the rats will follow, then let them out with the arrow and steal their key.
-	{
-		name = "Earthworks",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"#RRRRRR#r...r###",
-			"#RRRRRR#.....###",
-			"#RRRRRR#...k.###",
-			"#RRRRRR#Q#######",
-			"#RRRRRRR.#######",
-			"#RRRRRR#L#######",
-			"#RRRRRR#....g###",
-			"#RRRRRR#.....###",
-			"#@RRRat#.....###",
-			"################",
-		},
-		solution = "right pickaxe right right pickaxe right right pickaxe right right up pickaxe up up pickaxe up up pickaxe up up pickaxe up right pickaxe right right pickaxe right left left left pickaxe left left pickaxe left left pickaxe left left pickaxe left down pickaxe down down pickaxe down right pickaxe right right pickaxe right left left up up right right right right down down down down left left right bow left left left wait wait wait wait wait wait wait wait right right right right up up up up right right right up up right right right left left left down down down down right right right right",
-	},
-	-- 6. Bats fly back and forth. Wait for the right moment.
-	{
-		name = "Night Flight",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"#...###.#####.g#",
-			"#...###.#v###..#",
-			"#...#v#.#.###..#",
-			"#...#.#.#.#v#..#",
-			"#.@............#",
-			"#...#.#.#.#.#..#",
-			"#...#.#.#.###..#",
-			"#...###v#.###..#",
-			"#...###.#####..#",
-			"################",
-		},
-		solution = "up up up down down down right right right right right right right right right right right up up up up right",
-	},
-	-- 7. Bombs explode 3 turns after being dropped. Two bombs, two problems.
-	{
-		name = "Short Fuse",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"################",
-			"##.....#.....###",
-			"##.@...#..r..###",
-			"##..q..C.....###",
-			"##.....#.....###",
-			"##..q..#..g..###",
-			"##.....#.....###",
-			"################",
-			"################",
-			"################",
-		},
-		solution = "down right down down up right bomb up bomb left down right up right right right down down right right",
-	},
-	-- 8. A bomb holds the gate open for 3 turns, then takes everything next to it along.
-	{
-		name = "Paperweight",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"#.......vs######",
-			"#.......R.######",
-			"#......R..######",
-			"#......R.+######",
-			"#......R..G.Ng.#",
-			"#.......#.######",
-			"#.........######",
-			"#.........######",
-			"#@...q....######",
-			"################",
-		},
-		solution = "right right right right up up up up up up up right right right pickaxe left left down down down right down down right right right up up bomb right right wait right right",
-	},
-	-- 9. Arrows fly over chasms.
-	{
-		name = "Bullseye",
-		subtitle = "",
-		floor = "grass",
-		border = "tree",
-		map = {
-			"################",
-			"#@.....#.......#",
-			"#......#.......#",
-			"#.a....#.......#",
-			"#......#.......#",
-			"#......____...t#",
-			"#......#.......#",
-			"###Q############",
-			"#..............#",
-			"#..........g...#",
-			"################",
-		},
-		solution = "down down right down down right bow down down down down right right right right right right right right",
-	},
-	-- 10. Explosions hit targets too, even behind walls.
-	{
-		name = "Chain Reaction",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"#.......#WWWWWW#",
-			"#.@.....#WWtWWW#",
-			"#.......#WWxWWW#",
-			"#..a....#WWxWWW#",
-			"#.......xxxWWWW#",
-			"#.......#WWWWWW#",
-			"####Q###########",
-			"#..............#",
-			"#.......g......#",
-			"################",
-		},
-		solution = "down down right down right bow down down down down right right right right",
-	},
-	-- 11. The red potion makes you leap over things. And you can only leap.
-	{
-		name = "Leap of Faith",
-		subtitle = "",
-		floor = "grass",
-		border = "tree",
-		map = {
-			"################",
-			"#@....._....___#",
-			"#......_...^___#",
-			"#......_...^^g^#",
-			"#.h...._..^^^.^#",
-			"#......_..^^...#",
-			"#......_...^...#",
-			"#......_...^...#",
-			"#......_....c..#",
-			"#......_.......#",
-			"################",
-		},
-		solution = "down right down right right right down down right right up up up up up right",
-	},
-	-- 12. Monsters drink potions too. A leaping rat is not scared of chasms.
-	{
-		name = "Bad Influence",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"#..........._hr#",
-			"#...........####",
-			"#..............#",
-			"#..............#",
-			"#.@........^...#",
-			"#..............#",
-			"#..............#",
-			"###N###........#",
-			"#.g...#........#",
-			"################",
-		},
-		solution = "up up up up down down down down down down right down down left",
-	},
-	-- 13. Spiders do the opposite of what you do, and nothing when you do nothing.
-	{
-		name = "Contrary",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"#......#.......#",
-			"#......#...s...#",
-			"#......#.......#",
-			"#......G.......#",
-			"#......#.......#",
-			"#......#+......#",
-			"#......#.......#",
-			"#.@....#.....g.#",
-			"#......#.......#",
-			"################",
-		},
-		solution = "up up up up right right right right right right right down down down down right right right right",
-	},
-	-- 14. You can't walk past a spider. You can jump over it.
-	{
-		name = "Leapfrog",
-		subtitle = "",
-		floor = "grass",
-		border = "tree",
-		map = {
-			"################",
-			"################",
-			"################",
-			"################",
-			"################",
-			"#..@.h......sg##",
-			"################",
-			"################",
-			"################",
-			"################",
-			"################",
-		},
-		solution = "left right right right right right right right",
-	},
-	-- 15. The spider holds the gate, the arrow opens the way, and the skull wants the spider gone.
-	{
-		name = "Midnight",
-		subtitle = "",
-		floor = "cave_floor",
-		border = "wall",
-		map = {
-			"################",
-			"#..a..#......t.#",
-			"#.....#.s......#",
-			"#.....G........#",
-			"#.@...#.#+.....#",
-			"#######....^...#",
-			"#.#...Q....^...#",
-			"##gN..#........#",
-			"#.#...#........#",
-			"#.....#........#",
-			"################",
-		},
-		solution = "up left up right up right down left down right right right right right right up up right bow down down down down down left left left left down left left left",
-	},
-} :: { Level }
+	sinkhole = require("./maps/sinkhole"),
+	camp = require("./maps/camp"),
+	fern_hollow = require("./maps/fern_hollow"),
+	lantern_grotto = require("./maps/lantern_grotto"),
+	dark_hollow = require("./maps/dark_hollow"),
+	colonnade = require("./maps/colonnade"),
+	mole_den = require("./maps/mole_den"),
+	sunken_steps = require("./maps/sunken_steps"),
+	anthill = require("./maps/anthill"),
+	dry_canals = require("./maps/dry_canals"),
+	bazaar = require("./maps/bazaar"),
+	pumping_station = require("./maps/pumping_station"),
+	storm_dunes = require("./maps/storm_dunes"),
+	warden_hall = require("./maps/warden_hall"),
+	howling_gorge = require("./maps/howling_gorge"),
+	mire_edge = require("./maps/mire_edge"),
+	nettle_clearing = require("./maps/nettle_clearing"),
+	nettle_hut = require("./maps/nettle_hut"),
+	hospital_grounds = require("./maps/hospital_grounds"),
+	house_of_healing = require("./maps/house_of_healing"),
+	drowned_docks = require("./maps/drowned_docks"),
+	great_mire = require("./maps/great_mire"),
+	frog_isle = require("./maps/frog_isle"),
+	toxic_fen = require("./maps/toxic_fen"),
+	frozen_stair = require("./maps/frozen_stair"),
+	rimehold = require("./maps/rimehold"),
+	elder_lodge = require("./maps/elder_lodge"),
+	the_glare = require("./maps/the_glare"),
+	ice_caves = require("./maps/ice_caves"),
+	old_watch = require("./maps/old_watch"),
+	sleepers_barracks = require("./maps/sleepers_barracks"),
+	watch_hall = require("./maps/watch_hall"),
+	whiteout = require("./maps/whiteout"),
+	seawall = require("./maps/seawall"),
+	bronze_ward = require("./maps/bronze_ward"),
+	diggings = require("./maps/diggings"),
+	hall_of_waters = require("./maps/hall_of_waters"),
+	water_tower = require("./maps/water_tower"),
+	ward_home = require("./maps/ward_home"),
+	tally_shop = require("./maps/tally_shop"),
+	ebb_register = require("./maps/ebb_register"),
+	clock_tower = require("./maps/clock_tower"),
+	pump_house = require("./maps/pump_house"),
+	ebb_house = require("./maps/ebb_house"),
+	ward_ruin = require("./maps/ward_ruin"),
+	guard_post = require("./maps/guard_post"),
+	warehouse = require("./maps/warehouse"),
+	dry_harbor = require("./maps/dry_harbor"),
+	harbor_office = require("./maps/harbor_office"),
+	lighthouse = require("./maps/lighthouse"),
+	salt_guild = require("./maps/salt_guild"),
+	ship_cabin = require("./maps/ship_cabin"),
+	hanging_gardens = require("./maps/hanging_gardens"),
+	gardener_shed = require("./maps/gardener_shed"),
+	palace = require("./maps/palace"),
+	engine = require("./maps/engine"),
+	heart = require("./maps/heart"),
+	archive = require("./maps/archive"),
+	foundry = require("./maps/foundry"),
+	tide_road = require("./maps/tide_road"),
+	surface = require("./maps/surface"),
+} :: { [string]: LevelData }
+
+--- The names of the floors of the Explorium, from the top
+module.floorNames = { "The Oasis", "The Desert", "The Wetlands", "The Frosted Frontier", "The City of the Tide", "The Depth" }
+
+--- The levels in the order of the journey, for the maps of the notebook
+module.order = {
+	"sinkhole",
+	"camp",
+	"fern_hollow",
+	"lantern_grotto",
+	"dark_hollow",
+	"colonnade",
+	"mole_den",
+	"sunken_steps",
+	"anthill",
+	"dry_canals",
+	"bazaar",
+	"pumping_station",
+	"storm_dunes",
+	"warden_hall",
+	"howling_gorge",
+	"mire_edge",
+	"nettle_clearing",
+	"nettle_hut",
+	"hospital_grounds",
+	"house_of_healing",
+	"drowned_docks",
+	"great_mire",
+	"frog_isle",
+	"toxic_fen",
+	"frozen_stair",
+	"rimehold",
+	"elder_lodge",
+	"the_glare",
+	"ice_caves",
+	"old_watch",
+	"sleepers_barracks",
+	"watch_hall",
+	"whiteout",
+	"seawall",
+	"bronze_ward",
+	"water_tower",
+	"ward_home",
+	"tally_shop",
+	"ebb_register",
+	"clock_tower",
+	"pump_house",
+	"ebb_house",
+	"ward_ruin",
+	"guard_post",
+	"warehouse",
+	"diggings",
+	"hall_of_waters",
+	"foundry",
+	"dry_harbor",
+	"harbor_office",
+	"lighthouse",
+	"salt_guild",
+	"ship_cabin",
+	"hanging_gardens",
+	"gardener_shed",
+	"palace",
+	"engine",
+	"heart",
+	"archive",
+	"tide_road",
+	"surface",
+}
 
 return module

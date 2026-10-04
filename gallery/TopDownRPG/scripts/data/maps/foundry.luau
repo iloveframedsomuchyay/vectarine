@@ -1,0 +1,113 @@
+--[[
+The Foundry: where the Bronze cast the servants of the city, behind the citizens' gate in the south of the Ward. The
+casting hall: furnaces along the north wall, moulds, conveyors, the Foreman (a loader automaton gone rogue, the
+mini-boss of the city: it charges in straight lines and stuns itself against the walls and the moulds; it stomps rings
+of sparks).
+The pump room is in the south, behind two floors of live copper: the first pulses (a brave player can time it), the
+second is steady. Their breakers are elsewhere: the first at the end of the piston corridor (west), the second at the
+end of the steam gallery (east). The valve of the great pump sends water up the pipe of the cliff to the Heights: the
+fountains of the gardens run, and the water lock of the palace gate rises (see hanging_gardens.luau).
+The stores (behind pulsing plates of the first circuit): the arms of Unit-7, the copper scale. A crack in the north wall
+of the hall hides the vault of the arc pistol.
+]]
+const legend = require("../legend")
+
+return {
+	name = "The Foundry",
+	subtitle = "The City of the Tide",
+	depth = 5,
+	style = "city",
+	floor = "bronze_floor",
+	foreground = "city",
+	darkness = 0.5,
+	legend = {
+		t = { prop = "tablet", data = { lore = "foundry" } },
+		o = { prop = "tablet", data = { lore = "foundry_order" } },
+		F = { prop = "furnace" },
+		m = { prop = "mould" },
+		["<"] = { ground = "conveyor" },
+		B = { monster = "foreman", unique = "foreman" },
+		h = { monster = "piston_right" },
+		g = { monster = "steam_vent" },
+		b = { prop = "breaker", data = { id = "foundry_west", text = "You throw the breaker. Somewhere in the hall, a floor of copper stops crackling." } },
+		e = { prop = "breaker", data = { id = "foundry_east", text = "You throw the breaker. The steady hum under the pump room dies." } },
+		a = { prop = "chest", data = { items = { { "unit7_arms", 1 }, { "voltaic_charge", 10 } } } },
+		k = { prop = "chest", data = { items = { { "copper_scale", 1 }, { "iron_draught", 2 } } } },
+		s = { prop = "shelf" },
+		V = { prop = "pump_valve", data = { id = "foundry_pump" } },
+		["|"] = { prop = "valve_pipe" },
+		["?"] = { wall = "block_face_cracked", opens = "foundry_vault" },
+		v = { secret = "foundry_vault" },
+		c = { secret = "foundry_vault", prop = "chest", data = { items = { { "arc_pistol", 1 }, { "voltaic_charge", 30 }, { "energy_core", 1 } } } },
+		u = { monster = "arc_turret" },
+		d = { monster = "drudge" },
+	} :: { [string]: legend.LegendEntry },
+	links = {
+		["1"] = { level = "bronze_ward", entry = "5" },
+	},
+	power = {
+		{ area = { 21, 18, 30, 19 }, mode = "pulse", period = 2.4, on = 1.2, breaker = "foundry_west" },
+		{ area = { 11, 17, 12, 17 }, mode = "pulse", period = 2.4, on = 1.2, breaker = "foundry_west" },
+		{ area = { 21, 20, 30, 21 }, mode = "steady", breaker = "foundry_east" },
+	},
+	map = {
+		"###################11###################",
+		"###############----------##vcv##########",
+		"###############----------##vvv##########",
+		"##WWWWWWWWWWWWW----------WWW?WWWWWWWWW##",
+		"##-F--F--F--F----t----o----F---F--F--F##",
+		"##------------<----------<------------##",
+		"##------------<----------<------------##",
+		"##------m--m--<-----B----<--m--m------##",
+		"##------------<----------<------------##",
+		"##------------<-NNNNNNNN-<------------##",
+		"##------------<-NNNNNNNN-<------------##",
+		"##------------<-NNNNNNNN-<------------##",
+		"##--------d---<-MMMMMMMM-<---d--------##",
+		"##------------<----------<------------##",
+		"##---u--------<----------<--------u---##",
+		"##------------<----d-----<------------##",
+		"##------------------------------------##",
+		"##W--WWWWWW==WWWWWWWWWWW----WWWWW--WWW##",
+		"##----##-ss---ss-####==========#------##",
+		"##h---##---------####==========#-g--g-##",
+		"##----##---------####==========#------##",
+		"##h---##---------####WWWW==WWWW#---g--##",
+		"##----##---------####-|------|-#------##",
+		"##--b-##---------####----------#-----e##",
+		"########-a------k####----V-----#########",
+		"########---------####----------#########",
+		"#####################-X-------X#########",
+		"########################################",
+	},
+	decor = {
+		"........................................",
+		"........................................",
+		"........................................",
+		"..PGPPGPPGPPGPP..........PPG.PGPPGPPGP..",
+		"........................................",
+		"........................................",
+		"....c.............c.....................",
+		"........................................",
+		"........................................",
+		".................................c......",
+		".......o................................",
+		"........................................",
+		"....................................c...",
+		"............o..............c............",
+		"......................c.................",
+		"........................................",
+		"........................................",
+		"..P..PPPXPP..PPPXPPPXPPP....XPPPX..PXP..",
+		"........................................",
+		"........................................",
+		"..................................c.....",
+		"...........c.........PPPP..PPPP.........",
+		"........................................",
+		"..........................o.............",
+		"........................................",
+		"........................................",
+		"........................................",
+		"........................................",
+	},
+}
