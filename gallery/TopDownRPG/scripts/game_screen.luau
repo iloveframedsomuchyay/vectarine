@@ -9,6 +9,7 @@ It also handles the flow of the game: transitions between levels, title cards, a
 dialogs and menus. The rules themselves are in game_logic.luau: this screen turns the keyboard into an `Input`
 and turns `game.events` into things to show.
 ]]
+const audio = require("./audio")
 const debug_tools = require("./debug_tools")
 const dialog = require("./dialog")
 const effects = require("./effects")
@@ -90,6 +91,14 @@ const INTRO: { types.DialogStep } = {
 const PROMPTS_GLOW = 40
 
 --- Start the game from the save, or a new game if there is none.
+--- Remove what is shown over the world: the title of the level, the message, the banners (a new game; tools that
+--- record the game)
+function module.clearOverlays()
+	uiState.title = nil
+	uiState.message = nil
+	uiState.banners = {}
+end
+
 function module.startGame()
 	local saved = progress.load()
 	local game = if saved then progress.restore(saved) else game_state.new()
@@ -98,9 +107,7 @@ function module.startGame()
 	dialog.close()
 	menus.close()
 	effects.clear()
-	uiState.title = nil
-	uiState.message = nil
-	uiState.banners = {}
+	module.clearOverlays()
 	uiState.pendingMenu = nil
 	if not saved then
 		dialog.open(game, nil, INTRO)
@@ -164,6 +171,17 @@ local function openMenu(menu: { kind: string, [string]: any })
 	end
 end
 
+--- The sound of each kind of event
+const EVENT_SOUNDS: { [string]: string } = {
+	levelUp = "level_up",
+	artefact = "artefact",
+	chest = "chest_open",
+	rested = "rest",
+	stairs = "stairs",
+	travel = "travel",
+	fainted = "faint",
+}
+
 local function handleEvents(game: types.Game)
 	local events = game.events
 	game.events = {}
@@ -172,6 +190,11 @@ local function handleEvents(game: types.Game)
 	local leveled = false
 	for _, event in events do
 		local kind = event.kind
+		-- The sounds of what happened (the effects of combat are cued where they happen, see audio.luau)
+		local cue = EVENT_SOUNDS[kind]
+		if cue then
+			audio.cue(cue)
+		end
 		if kind == "killed" and not killed then
 			killed = event.monster
 		elseif kind == "levelUp" then
@@ -362,6 +385,7 @@ local function handleInput(game: types.Game, dt: number, extra: any)
 				interactions.teleport(game, action.key)
 			end)
 		elseif action and action.kind == "quit" then
+			audio.silence()
 			progress.save(game)
 			module.game = nil
 			postfx.state.danger = 0
@@ -431,17 +455,19 @@ local function drawPrompts(game: types.Game, layout: Layout, extra: any)
 end
 
 --- Draw the whole level in the world view, without darkness: a tool to review levels (`explorium.debug.overview`).
---- With `{ x, y, px }` instead of `true`, the part of the level from that cell, with tiles of `px` pixels.
+--- With `{ x, y, px }` instead of `true`, the part of the level from that cell, with tiles of `px` pixels. Options:
+--- `full` (the whole window, not only the world view), `dark` (the darkness and the lights, as in the game),
+--- `foreground` (with `dark`: the silhouettes framing the screen and the key prompts too).
 local function drawOverview(game: types.Game, layout: Layout, from: any)
 	if type(from) == "table" then
 		local window = io.getWindowSize()
 		local saved = world_view.camera
 		world_view.camera = vec.V2(from.x, from.y)
 		world_view.drawWorld(game, {
-			pos = layout.world.pos,
-			size = layout.world.size,
+			pos = if from.full then vec.V2(-1, -1) else layout.world.pos,
+			size = if from.full then vec.V2(2, 2) else layout.world.size,
 			tileSize = vec.V2(from.px * 2 / window.x, from.px * 2 / window.y),
-		}, { time = ui_components.time, darkness = false })
+		}, { time = ui_components.time, darkness = from.dark == true, foreground = from.foreground == true })
 		world_view.camera = saved
 		return
 	end
@@ -571,6 +597,10 @@ module.gameScreenWidget = ui.widget(vec.V2(2, 2), function(_events, extra)
 		return -- The player quit this frame
 	end
 	handleEvents(game)
+	-- Music and ambience play on under dialogs and menus; the footsteps follow the player
+	if module.flow.kind == "play" then
+		audio.update(game)
+	end
 	-- A menu waiting for the end of a dialog (the shop of a trader)
 	if uiState.pendingMenu and not dialog.isOpen() then
 		menus.open(uiState.pendingMenu :: any)

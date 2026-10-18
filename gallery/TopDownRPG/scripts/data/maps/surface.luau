@@ -9,6 +9,9 @@ return {
 	name = "The Surface",
 	subtitle = "Daylight",
 	depth = 5,
+	-- Daylight: the song of the water, whole, and the silence of the open sky
+	music = "oasis",
+	ambience = "none",
 	floor = "grass",
 	foreground = "open",
 	darkness = 0,

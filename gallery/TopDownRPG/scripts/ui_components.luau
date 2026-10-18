@@ -1,6 +1,7 @@
 --[[
 Reusable UI widgets: panels, item slots and menus.
 ]]
+const audio = require("./audio")
 const graphics = require("@vectarine/graphics")
 const io = require("@vectarine/io")
 const loader = require("@vectarine/loader")
@@ -57,6 +58,8 @@ export type MenuItem<T> = {
 	--- Optional icon from the icons sheet, for example "icons/play"
 	icon: string?,
 	action: (extra: T) -> (),
+	--- Optional: Left/Right change the value of the item (-1 or 1), like a volume
+	adjust: ((step: number) -> ())?,
 }
 
 --- A vertical list of buttons that can be used with the mouse or the keyboard (Up/Down + Space/Enter).
@@ -80,6 +83,7 @@ function module.menu<T>(items: { MenuItem<T> }, buttonSize: vec.Vec2): ui.Widget
 				end
 				if events.isMouseJustReleased then
 					state.selected = index
+					audio.cue("ui_select")
 					item.action(extra)
 				end
 				local selected = state.selected == index
@@ -136,12 +140,20 @@ function module.menu<T>(items: { MenuItem<T> }, buttonSize: vec.Vec2): ui.Widget
 		local mouse = io.getMouse()
 		state.mouseMoved = (mouse - state.lastMouse):length() > 0.001
 		state.lastMouse = mouse
+		local item = items[state.selected]
 		if io.isKeyJustPressed("Down") then
 			state.selected = state.selected % #items + 1
+			audio.cue("ui_move")
 		elseif io.isKeyJustPressed("Up") then
 			state.selected = (state.selected - 2) % #items + 1
+			audio.cue("ui_move")
+		elseif item.adjust and (io.isKeyJustPressed("Left") or io.isKeyJustPressed("Right")) then
+			-- Settings with values (a volume): the arrows change them
+			item.adjust(if io.isKeyJustPressed("Right") then 1 else -1)
+			audio.cue("ui_move")
 		elseif io.isKeyJustPressed("Space") or io.isKeyJustPressed("Return") then
-			items[state.selected].action(extra)
+			audio.cue("ui_select")
+			item.action(extra)
 		end
 		column:draw(extra)
 	end)

@@ -6,6 +6,7 @@ This is what lets tests and debug_tools.luau play the game at full speed.
 
 Things the screen must show (dialogs, title cards, the death screen...) are added to `game.events`.
 ]]
+const audio = require("./audio")
 const beams = require("./beams")
 const blocks = require("./blocks")
 const cogs = require("./cogs")
@@ -151,6 +152,7 @@ local function collectPickups(game: types.Game, dt: number)
 					local taken = pickup.count - left
 					effects.floatText(player.pos + vec.V2(0, -1.2), if taken > 1 then `+{taken} {item.name}` else `+ {item.name}`, theme.colors.text)
 					effects.burst(pickup.pos, "sparkle", 6)
+					audio.cue("pickup")
 					tutorials.onPickup(game, pickup.item)
 					if item.kind == "artefact" then
 						game.events[#game.events + 1] = { kind = "artefact", item = pickup.item }
