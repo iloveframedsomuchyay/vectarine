@@ -15,6 +15,10 @@ pub static AUDIO_SAMPLE_FREQUENCY: i32 = 48000; // in Hz
 pub static AUDIO_CHANNELS: i32 = 2; // Stereo
 
 pub struct AudioResource {
+    // A chunk stored the full raw audio uncompressed which can cause memory issues.
+    // An idea: Store a compressed lossless format instead (flac?)
+    // and decompress the chunks of the flac blob on the fly as needed to
+    // reduce memory use without degrading sound quality.
     pub chunk: RefCell<Option<Box<[f32]>>>,
     pub duration: RefCell<f32>,
     pub currently_used_channel: RefCell<Option<ChannelId>>,
@@ -167,6 +171,9 @@ impl Resource for AudioResource {
     }
 }
 
+/// The fade at the end of a sound that is not looped, in milliseconds
+const END_FADE_MS: f32 = 10.0;
+
 impl AudioResource {
     /// Start playing the audio from the beginning.
     pub fn play(&self, looped: bool, fade_in_ms: Option<i32>) {
@@ -183,28 +190,30 @@ impl AudioResource {
             println!("No audio chunk loaded to play.");
             return;
         };
-        sound::resume_audio(channel);
+        // A short fade at the end of a sound that is not looped, in case it doesn't end in silence (no click)
         sound::set_sound_data_to_channel(
             channel,
             chunk,
             fade_in_ms.unwrap_or(100) as f32,
-            100.0,
+            END_FADE_MS,
             looped,
         );
     }
-    pub fn pause(&self) {
+
+    pub fn pause(&self, fade_out_ms: Option<f32>) {
         let channel = self.currently_used_channel.borrow();
         let Some(channel) = channel.as_ref() else {
             return;
         };
-        sound::pause_audio(*channel);
+        sound::pause_audio(*channel, fade_out_ms.unwrap_or(0.0));
     }
-    pub fn resume(&self) {
+
+    pub fn resume(&self, fade_in_ms: Option<f32>) {
         let channel = self.currently_used_channel.borrow();
         let Some(channel) = channel.as_ref() else {
             return;
         };
-        sound::resume_audio(*channel);
+        sound::resume_audio(*channel, fade_in_ms.unwrap_or(0.0));
     }
 
     pub fn is_playing(&self) -> bool {
