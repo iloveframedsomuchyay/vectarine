@@ -11,6 +11,7 @@ On the frontier: phantoms can only be hit by a dreaming player (see dream.luau),
 dreaming, cold weapons slow creatures down, and during a round of the snowball gallery (gallery.luau)
 attacking throws snowballs at the targets.
 ]]
+const audio = require("./audio")
 const dream = require("./dream")
 const ducts = require("./ducts")
 const effects = require("./effects")
@@ -91,6 +92,7 @@ end
 
 local function kill(game: types.Game, monster: types.Monster, species: monsters.Species)
 	monster.dead = true
+	audio.cueAt(game, "defeat", monster.pos)
 	local notebook = game.notebook.creatures
 	notebook[monster.kind] = (notebook[monster.kind] or 0) + 1
 	if monster.uniqueKey then
@@ -195,6 +197,7 @@ function module.hurtMonster(
 	effects.floatText(monster.pos + vec.V2(0, -(species.size or 1)), tostring(dealt), color)
 	effects.animate(monster.pos + vec.V2(0, -0.4), { "characters/hit_0", "characters/hit_1" }, 0.15)
 	effects.shake(0.08)
+	audio.cueAt(game, "hit", monster.pos)
 	-- Seeing a creature adds it to the bestiary
 	game.notebook.creatures[monster.kind] = game.notebook.creatures[monster.kind] or 0
 	if monster.hp <= 0 then
@@ -211,6 +214,7 @@ local function breakProp(game: types.Game, prop: types.Prop)
 	level.clearProp(game.level :: any, prop.cell)
 	local center = prop.cell + vec.V2(0.5, 0.6)
 	effects.burst(center, "debris", 10)
+	audio.cueAt(game, "break", center)
 	for _, drop in kind.drops or {} do
 		if math.random() < drop.chance * player_rules.luck(game.player) then
 			table.insert(game.pickups, { pos = center, item = drop.item, count = drop.count or 1, age = 0, dead = false })
@@ -266,6 +270,7 @@ function module.attack(game: types.Game): string?
 			return "No bombs left"
 		end
 		player.attackTimer = weapon.cooldown or 0.8
+		audio.cue("bomb_fuse")
 		table.insert(game.bombs, { pos = player.pos + direction:scale(0.6), fuse = module.BOMB_FUSE, damage = weapon.damage or 30 })
 		return nil
 	end
@@ -282,6 +287,7 @@ function module.attack(game: types.Game): string?
 		end
 		player.attackTimer = weapon.cooldown or 0.5
 		player.swingTime = 0
+		audio.cue(if weapon.shot == "spark" then "spark" else "shoot")
 		local shot = module.SHOTS[weapon.shot]
 		table.insert(game.projectiles, {
 			pos = chest(player.pos) + direction:scale(0.4),
@@ -299,6 +305,7 @@ function module.attack(game: types.Game): string?
 
 	player.attackTimer = weapon.cooldown or 0.4
 	player.swingTime = 0
+	audio.cue("swing")
 	local reach = weapon.reach or 0.8
 	local center = chest(player.pos) + direction:scale(reach * 0.6)
 	local radius = reach * 0.65
@@ -335,6 +342,7 @@ local function explode(game: types.Game, bomb: types.Bomb)
 	effects.animate(pos + vec.V2(0, -0.3), { "characters/explosion_0", "characters/explosion_1", "characters/explosion_2" }, 0.45, 0, 2.6)
 	effects.burst(pos, "debris", 18)
 	effects.shake(0.6)
+	audio.cueAt(game, "explosion", pos)
 	for _, monster in game.monsters do
 		local species = monsters.species[monster.kind]
 		if not monster.dead and (monster.pos - pos):length() < BLAST_RADIUS + species.radius then
@@ -370,6 +378,7 @@ local function explode(game: types.Game, bomb: types.Bomb)
 		end
 	end
 	if opened then
+		audio.cue("crumble")
 		game.events[#game.events + 1] = { kind = "message", text = "The cracked wall crumbles! There was a way behind it." }
 	end
 end

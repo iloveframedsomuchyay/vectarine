@@ -103,6 +103,9 @@ export type LevelData = {
 	--- and the entry their door is (an exit like a digit of the map, linked in `links`). A building without `door`
 	--- shows a door nobody can reach (in the background).
 	buildings: { { kind: string, x: number, y: number, door: string?, alt: string?, altIf: string? } }?,
+	--- The music and the ambience of the level, instead of its floor's (data/sounds.luau); "none" for silence
+	music: string?,
+	ambience: string?,
 }
 
 const module = loader.init() or {}

@@ -11,6 +11,7 @@ Usage:
 While a dialog is open, the game is paused and [Space] shows the next line.
 See types.DialogStep for what a step can be.
 ]]
+const audio = require("./audio")
 const graphics = require("@vectarine/graphics")
 const loader = require("@vectarine/loader")
 const settings = require("./settings")
@@ -116,6 +117,7 @@ function module.advance()
 	local choice = state.choice
 	if choice then
 		state.choice = nil
+		audio.cue("ui_select")
 		local option = choice.options[state.selected]
 		local said = option.run(state.game)
 		if module.current ~= state then
@@ -146,6 +148,7 @@ function module.select(step: number)
 	local choice = if state then state.choice else nil
 	if state and choice then
 		state.selected = (state.selected - 1 + step) % #choice.options + 1
+		audio.cue("ui_move")
 	end
 end
 
@@ -153,11 +156,20 @@ function module.close()
 	module.current = nil
 end
 
+--- Letters typed between two blips of a voice
+const VOICE_EVERY = 3
+
 function module.update(dt: number)
 	local state = module.current
 	if state then
 		state.time += dt
+		local before = math.floor(state.shownChars)
 		state.shownChars = math.min(state.length, state.shownChars + dt * settings.values.textSpeed)
+		-- People speak in soft blips while their words appear (one every few letters); narration is silent
+		local now = math.floor(state.shownChars)
+		if state.lineSpeaker and now // VOICE_EVERY > before // VOICE_EVERY then
+			audio.cue("voice", 0.7)
+		end
 	end
 end
 

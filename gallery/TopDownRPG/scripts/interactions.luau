@@ -5,6 +5,7 @@ What [E] does: talk, open, rest, pick, read, use a teleporter, fill the bottle..
 with the label shown in the key prompts. `run` does it: simple things happen right away, others add an event
 for the screen (open a dialog, a shop, the storage of a chest, the list of teleporters).
 ]]
+const audio = require("./audio")
 const beams = require("./beams")
 const cogs = require("./cogs")
 const combat = require("./combat")
@@ -124,6 +125,7 @@ local actions: { [string]: (game: types.Game, prop: types.Prop) -> () } = {
 			end
 		end
 		game.flags[`opened:{prop.key}`] = true
+		audio.cue("chest_open")
 		-- The content of the chest, from the level, becomes its storage
 		local content: { types.ItemStack } = {}
 		for _, entry in prop.data.items or {} do
@@ -186,6 +188,7 @@ local actions: { [string]: (game: types.Game, prop: types.Prop) -> () } = {
 		player.water = 100
 		player.sips = player_rules.bottleSize(player)
 		effects.burst(prop.cell + vec.V2(0.5, 0.4), "water", 10)
+		audio.cue("fill")
 		message(game, "You drink your fill, and fill your bottle.")
 	end,
 
@@ -241,6 +244,7 @@ local actions: { [string]: (game: types.Game, prop: types.Prop) -> () } = {
 	end,
 
 	read = function(game, prop)
+		audio.cue("read")
 		local text = lore.texts[prop.data.lore]
 		assert(text, `Unknown lore text '{prop.data.lore}'`)
 		local readable = lore.canRead(game, text)
@@ -389,6 +393,7 @@ local actions: { [string]: (game: types.Game, prop: types.Prop) -> () } = {
 		game.flags[flag] = if game.flags[flag] then nil else true
 		effects.burst(prop.cell + vec.V2(0.5, 0.3), "spark", 10)
 		effects.shake(0.1)
+		audio.cue("lever")
 		if game.flags[flag] then
 			message(game, prop.data.text or "You throw the breaker. The hum of the current dies away.")
 		else
@@ -439,6 +444,7 @@ local actions: { [string]: (game: types.Game, prop: types.Prop) -> () } = {
 	end,
 
 	lever = function(game, prop)
+		audio.cue("lever")
 		if switches.open(game, prop.data.id) then
 			message(game, prop.data.text or "You pull the lever. Something hums into life.")
 		end
@@ -483,6 +489,7 @@ local actions: { [string]: (game: types.Game, prop: types.Prop) -> () } = {
 		local index = ((game.flags[flag] or 1) % #words) + 1
 		game.flags[flag] = index
 		effects.burst(prop.cell + vec.V2(0.5, 0.4), "debris", 3)
+		audio.cue("dial")
 		local group = prop.data.group
 		local solved = true
 		for _, other in game.level.props do
@@ -660,6 +667,7 @@ function module.teleport(game: types.Game, key: string)
 	end
 	game_state.enterLevel(game, target.level, nil, game_state.cellCenter(vec.V2(target.x, target.y)))
 	effects.flash(theme.colors.sanity, 0.6)
+	audio.cue("teleport")
 end
 
 return module

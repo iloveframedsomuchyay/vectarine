@@ -10,6 +10,7 @@ Stats (see the design document):
 
 Killing creatures (and giving items to some characters) gives experience. Each level gives a point to spend on a stat.
 ]]
+const audio = require("./audio")
 const effects = require("./effects")
 const god_mode = require("./god_mode")
 const inventory = require("./inventory")
@@ -226,6 +227,7 @@ function module.hurt(
 	effects.floatText(player.pos + vec.V2(0, -1), `-{taken}`, theme.colors.health)
 	effects.burst(player.pos + vec.V2(0, -0.4), "blood", 6)
 	effects.shake(0.25)
+	audio.cue("hurt")
 	effects.flash(theme.colors.health, 0.25)
 	if player.hp <= 0 then
 		player.hp = 0
@@ -297,6 +299,7 @@ function module.drink(player: types.Player): string
 	end
 	player.sips -= 1
 	player.water = math.min(100, player.water + module.SIP_WATER)
+	audio.cue("drink")
 	return `You drink. {player.sips} sips left.`
 end
 

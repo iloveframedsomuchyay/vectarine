@@ -13,6 +13,9 @@ export type Settings = {
 	textSpeed: number,
 	fullscreen: boolean,
 	screenShake: boolean,
+	--- Volumes, from 0 (off) to 100: the music and the ambiences, and the sound effects
+	musicVolume: number,
+	soundVolume: number,
 }
 
 const module = loader.init() or {}
@@ -24,6 +27,8 @@ const defaults: Settings = {
 	textSpeed = 45,
 	fullscreen = false,
 	screenShake = true,
+	musicVolume = 70,
+	soundVolume = 80,
 }
 
 local function loadSettings(): Settings
@@ -43,6 +48,17 @@ module.values = module.values or loadSettings() :: Settings
 
 function module.save()
 	persist.save(SAVE_NAME, module.values)
+end
+
+--- Change a volume by `step` (in steps of 10, from 0 to 100)
+function module.changeVolume(key: "musicVolume" | "soundVolume", step: number)
+	module.values[key] = math.clamp(module.values[key] + step * 10, 0, 100)
+	module.save()
+end
+
+--- A volume as the menus show it
+function module.volumeLabel(value: number): string
+	return if value <= 0 then "Off" else `{value}%`
 end
 
 function module.toggleFullscreen()

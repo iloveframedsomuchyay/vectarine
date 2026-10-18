@@ -10,6 +10,7 @@ Menus read the keyboard themselves (arrows, Space, X, E, the notebook key, Escap
 The notebook key opens and closes the notebook, E turns its pages, Escape closes any menu.
 `update` returns false when the menu closes.
 ]]
+const audio = require("./audio")
 const graphics = require("@vectarine/graphics")
 const inventory = require("./inventory")
 const io = require("@vectarine/io")
@@ -21,6 +22,7 @@ const map_view = require("./map_view")
 const npcs = require("./npcs")
 const player_rules = require("./player")
 const prompts = require("./prompts")
+const settings = require("./settings")
 const sprites = require("./sprites")
 const theme = require("./theme")
 const types = require("./types")
@@ -80,6 +82,7 @@ const TOOL_TEXT = {
 const BAG_COLUMNS = 6
 
 function module.open(menu: { kind: string, [string]: any })
+	audio.cue("ui_open")
 	scrollLists = {}
 	module.current = {
 		kind = menu.kind :: any,
@@ -113,6 +116,9 @@ function module.isOpen(): boolean
 end
 
 function module.close()
+	if module.current then
+		audio.cue("ui_close")
+	end
 	module.current = nil
 end
 
@@ -124,6 +130,10 @@ end
 local function arrows(): (number, number)
 	local dx = (if pressed("Right") or pressed("D") then 1 else 0) - (if pressed("Left") or pressed("A") then 1 else 0)
 	local dy = (if pressed("Down") or pressed("S") then 1 else 0) - (if pressed("Up") or pressed("W") then 1 else 0)
+	if dx ~= 0 or dy ~= 0 then
+		-- The most common sound of the game (moving in the bag, the lists): barely there
+		audio.cue("ui_tick")
+	end
 	return dx, dy
 end
 
@@ -672,16 +682,20 @@ local function drawTeleport(game: types.Game, menu: Menu, area: { pos: vec.Vec2,
 	end)
 end
 
-const PAUSE_ITEMS = { "Resume", "Notebook", "Save and quit to title" }
+--- The lines of the pause menu; the volumes change with Left/Right (and Space, which wraps around to Off)
+const PAUSE_ITEMS = { "Resume", "Notebook", "Music", "Sounds", "Save and quit to title" }
+const PAUSE_VOLUMES: { [number]: "musicVolume" | "soundVolume" } = { [3] = "musicVolume", [4] = "soundVolume" }
 
 local function drawPause(menu: Menu, area: { pos: vec.Vec2, size: vec.Vec2 })
 	local center = area.pos + area.size:scale(0.5)
 	local title = "Paused"
-	text(title, vec.V2(center.x - textWidth(title, 0.12) / 2, center.y + 0.2), 0.12, theme.colors.gold)
-	for i, label in PAUSE_ITEMS do
+	text(title, vec.V2(center.x - textWidth(title, 0.12) / 2, center.y + 0.26), 0.12, theme.colors.gold)
+	for i, name in PAUSE_ITEMS do
 		local selected = menu.selected == i
+		local key = PAUSE_VOLUMES[i]
+		local label = if key then `< {name}: {settings.volumeLabel(settings.values[key])} >` else name
 		local size = 0.065
-		local pos = vec.V2(center.x - textWidth(label, size) / 2, center.y + 0.02 - (i - 1) * 0.1)
+		local pos = vec.V2(center.x - textWidth(label, size) / 2, center.y + 0.1 - (i - 1) * 0.1)
 		text(label, pos, size, if selected then theme.colors.gold else theme.colors.text)
 	end
 end
@@ -729,13 +743,19 @@ function module.update(game: types.Game): { kind: string, [string]: any }?
 			return { kind = "travel", key = list[menu.selected].key }
 		end
 	elseif menu.kind == "pause" then
-		local _, dy = arrows()
+		local dx, dy = arrows()
 		menu.selected = math.clamp(menu.selected + dy, 1, #PAUSE_ITEMS)
-		if pressed("Space") or pressed("Return") then
+		local volume = PAUSE_VOLUMES[menu.selected]
+		if volume and dx ~= 0 then
+			settings.changeVolume(volume, dx)
+		elseif pressed("Space") or pressed("Return") then
+			audio.cue("ui_select")
 			if menu.selected == 1 then
 				module.close()
 			elseif menu.selected == 2 then
 				module.open({ kind = "notebook" })
+			elseif volume then
+				settings.changeVolume(volume, if settings.values[volume] >= 100 then -10 else 1)
 			else
 				module.close()
 				return { kind = "quit" }

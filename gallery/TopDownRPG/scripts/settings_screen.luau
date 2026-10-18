@@ -28,7 +28,28 @@ local function currentTextSpeedIndex(): number
 	return 2
 end
 
+--- A volume: Left/Right change it by 10%, Space goes up and wraps around to Off
+local function volumeItem(name: string, key: "musicVolume" | "soundVolume"): ui_components.MenuItem<any>
+	return {
+		label = function()
+			return `{name}: {settings.volumeLabel(settings.values[key])}`
+		end,
+		action = function()
+			if settings.values[key] >= 100 then
+				settings.changeVolume(key, -10)
+			else
+				settings.changeVolume(key, 1)
+			end
+		end,
+		adjust = function(step: number)
+			settings.changeVolume(key, step)
+		end,
+	}
+end
+
 local menu = ui_components.menu({
+	volumeItem("Music", "musicVolume"),
+	volumeItem("Sounds", "soundVolume"),
 	{
 		label = function()
 			return `Key hints: {onOff(settings.values.showPrompts)}`

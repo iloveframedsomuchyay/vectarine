@@ -11,6 +11,9 @@ return {
 	name = "The Tide Road",
 	subtitle = "The way of the Salt",
 	depth = 5,
+	-- The way up to the light: the song of the water, whole again, and the wind rising through the shaft
+	music = "oasis",
+	ambience = "desert",
 	floor = "dirt",
 	foreground = "cave",
 	darkness = 0.4,

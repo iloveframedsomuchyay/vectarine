@@ -720,6 +720,8 @@ export type DrawOptions = {
 	time: number,
 	--- Draw the darkness (the menus show the world without it)
 	darkness: boolean?,
+	--- Draw the silhouettes framing the screen and the key prompts (with the darkness; the review tool can skip them)
+	foreground: boolean?,
 }
 
 --- Draw the world in the viewport. Texts (floating damage numbers) are drawn after, in screen space.
@@ -786,12 +788,14 @@ function module.drawWorld(game: types.Game, viewport: Viewport, options: DrawOpt
 	end)
 	-- Close to the camera: the silhouettes framing the screen, then the weather
 	if options.darkness ~= false then
-		foreground.draw(game, origin, viewport.tileSize, module.camera, visible)
+		if options.foreground ~= false then
+			foreground.draw(game, origin, viewport.tileSize, module.camera, visible)
+		end
 		drawStorm(game, viewport, time)
 		drawSnow(game, viewport, time)
 		drawUpdraft(game, viewport, time)
 	end
-	if options.darkness ~= false then
+	if options.darkness ~= false and options.foreground ~= false then
 		drawKeyPrompts(game, viewport, time)
 	end
 
