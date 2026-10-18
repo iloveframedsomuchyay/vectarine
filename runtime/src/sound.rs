@@ -6,7 +6,33 @@ use std::collections::{HashMap, VecDeque};
 use vectarine_plugin_sdk::sdl2;
 use vectarine_plugin_sdk::sdl2::Sdl;
 
+/// How much sound is mixed ahead of what plays: frames can take this long without the sound breaking up (a level
+/// loading). Sounds started now are heard after at most this delay.
 static DURATION_OF_BUFFER_IN_MS: f32 = 150.0;
+
+/// A fade of the volume, applied while the sound plays (never written into the sound itself, so that a looped sound
+/// doesn't fade again at every repetition).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Fade {
+    /// Length of the fade, in samples
+    pub total: usize,
+    /// Samples of the fade already played
+    pub done: usize,
+}
+
+impl Fade {
+    fn new(total: usize) -> Option<Self> {
+        if total == 0 {
+            None
+        } else {
+            Some(Self { total, done: 0 })
+        }
+    }
+    /// From 0 to 1 over the fade
+    fn progress(&self) -> f32 {
+        (self.done as f32 / self.total as f32).min(1.0)
+    }
+}
 
 pub struct AudioResourceBuffer {
     pub buffer: VecDeque<f32>,
@@ -14,6 +40,12 @@ pub struct AudioResourceBuffer {
     pub is_playing: bool,
     pub volume: f32,
     pub is_looped: bool,
+    /// The volume rising from silence when the sound starts or resumes
+    pub fade_in: Option<Fade>,
+    /// The volume going down to silence before the sound pauses
+    pub fade_out: Option<Fade>,
+    /// Samples at the end of a sound that is not looped which fade to silence (so that a sound cut short doesn't click)
+    pub end_fade: usize,
 }
 
 impl Default for AudioResourceBuffer {
@@ -24,6 +56,9 @@ impl Default for AudioResourceBuffer {
             is_playing: false,
             is_looped: false,
             volume: 1.0,
+            fade_in: None,
+            fade_out: None,
+            end_fade: 0,
         }
     }
 }
@@ -34,6 +69,35 @@ impl AudioResourceBuffer {
         self.buffer.clear();
         self.progress = 0;
         self.is_playing = false;
+        self.fade_in = None;
+        self.fade_out = None;
+    }
+
+    /// The volume of the next sample, with the fades. Advances the fades.
+    fn next_gain(&mut self) -> f32 {
+        let mut gain = self.volume;
+        if let Some(fade) = &mut self.fade_in {
+            gain *= fade.progress();
+            fade.done += 1;
+            if fade.done >= fade.total {
+                self.fade_in = None;
+            }
+        }
+        if let Some(fade) = &mut self.fade_out {
+            gain *= 1.0 - fade.progress();
+            fade.done += 1;
+            if fade.done >= fade.total {
+                self.fade_out = None;
+                self.is_playing = false;
+            }
+        }
+        if !self.is_looped && self.end_fade > 0 {
+            let left = self.buffer.len().saturating_sub(self.progress);
+            if left < self.end_fade {
+                gain *= left as f32 / self.end_fade as f32;
+            }
+        }
+        gain
     }
 }
 
@@ -42,19 +106,22 @@ impl AudioResourceBuffer {
 pub struct ChannelId(usize);
 
 pub struct AudioQueue {
-    pub audio_queue: sdl2::audio::AudioQueue<f32>,
+    /// The device sound goes to. None when there is no audio device, or when the game runs headless (automated
+    /// tests): sounds still load and keep their state, but nothing is heard.
+    pub audio_queue: Option<sdl2::audio::AudioQueue<f32>>,
     pub audio_buffers: HashMap<ChannelId, AudioResourceBuffer>,
 }
 
 impl AudioQueue {
-    pub fn new(audio_queue: sdl2::audio::AudioQueue<f32>) -> Self {
+    pub fn new(audio_queue: Option<sdl2::audio::AudioQueue<f32>>) -> Self {
         Self {
             audio_queue,
             audio_buffers: HashMap::new(),
         }
     }
-    pub fn mix_audio(&mut self, bytes_to_advance: usize) -> Vec<f32> {
-        let mut output = vec![0.0; bytes_to_advance * size_of::<f32>()];
+    /// Mix the next `samples_to_advance` samples (interleaved stereo) of every sound playing.
+    pub fn mix_audio(&mut self, samples_to_advance: usize) -> Vec<f32> {
+        let mut output = vec![0.0; samples_to_advance];
 
         for buffer in self.audio_buffers.values_mut() {
             if buffer.progress >= buffer.buffer.len() {
@@ -64,25 +131,26 @@ impl AudioQueue {
                     buffer.is_playing = false;
                 }
             }
+            if buffer.buffer.is_empty() {
+                continue;
+            }
 
-            if buffer.is_playing {
-                for output_sample in output.iter_mut() {
-                    let sample = buffer.buffer.get(buffer.progress).unwrap_or(&0.0);
-                    *output_sample += sample * buffer.volume;
-                    if buffer.is_looped {
-                        // branch prediction makes this basically free.
-                        buffer.progress = (buffer.progress + 1).rem_euclid(buffer.buffer.len());
-                    } else {
-                        buffer.progress = std::cmp::min(buffer.progress + 1, buffer.buffer.len());
+            for output_sample in output.iter_mut() {
+                if !buffer.is_playing {
+                    break;
+                }
+                let sample = *buffer.buffer.get(buffer.progress).unwrap_or(&0.0);
+                *output_sample += sample * buffer.next_gain();
+                if buffer.is_looped {
+                    // branch prediction makes this basically free.
+                    buffer.progress = (buffer.progress + 1).rem_euclid(buffer.buffer.len());
+                } else {
+                    buffer.progress = std::cmp::min(buffer.progress + 1, buffer.buffer.len());
+                    if buffer.progress >= buffer.buffer.len() {
+                        buffer.is_playing = false;
                     }
                 }
             }
-        }
-
-        // Pad with zeros if needed.
-        if output.len() < bytes_to_advance {
-            let res = bytes_to_advance.saturating_sub(output.len());
-            output.extend_from_slice(&vec![0.0; res]);
         }
         output
     }
@@ -101,7 +169,7 @@ pub fn init_sound_system(sdl: &Sdl) {
                 "Failed to initialize audio subsystem: {:?}. Audio will be disabled.",
                 audio_err
             );
-            return;
+            return; // Sounds still load and play silently (see with_audio_queue)
         }
     };
 
@@ -111,122 +179,105 @@ pub fn init_sound_system(sdl: &Sdl) {
         samples: None,                               // default sample size
     };
 
-    let audio_queue = audio
-        .open_queue::<f32, Option<&str>>(None, &desired_spec)
-        .expect("Queue to be available");
+    let audio_queue = match audio.open_queue::<f32, Option<&str>>(None, &desired_spec) {
+        Ok(audio_queue) => Some(audio_queue),
+        Err(err) => {
+            println!("Failed to open an audio device: {:?}. Audio will be disabled.", err);
+            None
+        }
+    };
 
     AUDIO_QUEUE.with_borrow_mut(|global_audio_queue| {
         *global_audio_queue = Some(AudioQueue::new(audio_queue));
     });
 }
 
+/// Run `f` with the audio queue. Without a sound system (no audio device, or a headless run of the tests), a silent
+/// queue is created: sounds load and keep their state, but are never heard.
+fn with_audio_queue<T>(f: impl FnOnce(&mut AudioQueue) -> T) -> T {
+    AUDIO_QUEUE.with_borrow_mut(|global_audio_queue| {
+        let audio_queue = global_audio_queue.get_or_insert_with(|| AudioQueue::new(None));
+        f(audio_queue)
+    })
+}
+
 /// Return a new channel id that can be used to play audio.
 pub fn get_available_channel() -> ChannelId {
-    let mut channel_id = ChannelId(0);
-    AUDIO_QUEUE.with_borrow_mut(|global_audio_queue| {
-        let buffers = &mut global_audio_queue
-            .as_mut()
-            .expect("Audio system should be initialized")
-            .audio_buffers;
-        channel_id = ChannelId(buffers.len());
-        buffers.insert(channel_id, AudioResourceBuffer::default());
-    });
-    channel_id
+    with_audio_queue(|audio_queue| {
+        let channel_id = ChannelId(audio_queue.audio_buffers.len());
+        audio_queue
+            .audio_buffers
+            .insert(channel_id, AudioResourceBuffer::default());
+        channel_id
+    })
 }
 
 pub fn get_audio_buffer<F, T>(channel_id: ChannelId, f: F) -> T
 where
     F: FnOnce(&mut AudioResourceBuffer) -> T,
 {
-    let mut result: Option<T> = None;
-    AUDIO_QUEUE.with_borrow_mut(|global_audio_queue| {
-        let audio_queue = global_audio_queue
-            .as_mut()
-            .expect("Audio system should be initialized");
+    with_audio_queue(|audio_queue| {
         let audio_buffer = audio_queue
             .audio_buffers
-            .get_mut(&channel_id)
-            .expect("Channel id refers to a channel in the buffers");
-        result = Some(f(audio_buffer));
-    });
-    result.expect("get_audio_buffer: f has been called")
+            .entry(channel_id)
+            .or_default();
+        f(audio_buffer)
+    })
 }
 
+/// Samples (interleaved stereo) played in `ms` milliseconds
+fn samples_in_ms(ms: f32) -> usize {
+    (ms * crate::AUDIO_CHANNELS as f32 * crate::AUDIO_SAMPLE_FREQUENCY as f32 / 1000.0) as usize
+}
+
+/// Start playing `data_to_play` on a channel, from its beginning. The volume rises over `fade_in_ms`; a sound that is not
+/// looped fades to silence over its last `end_fade_ms`. The fades are applied while the sound plays: the sound itself
+/// is kept as it is (a looped sound doesn't fade in again at every repetition).
 pub fn set_sound_data_to_channel(
     channel_id: ChannelId,
     data_to_play: &[f32],
     fade_in_ms: f32,
-    fade_out_ms: f32,
+    end_fade_ms: f32,
     looped: bool,
 ) {
-    let byte_count_needed_for_a_ms =
-        (crate::AUDIO_CHANNELS as f32 * crate::AUDIO_SAMPLE_FREQUENCY as f32) / 1000.0;
-
-    let samples_to_fade_in = (fade_in_ms * byte_count_needed_for_a_ms) as usize;
-    let samples_to_fade_out = (fade_out_ms * byte_count_needed_for_a_ms) as usize;
-
-    // For loop is clearer in this context
-    #[allow(clippy::needless_range_loop)]
     get_audio_buffer(channel_id, |audio_buffer| {
         audio_buffer.clear();
-        let mut sample_copy = data_to_play.to_vec();
-
-        // Linear fade
-        for i in 0..std::cmp::min(sample_copy.len(), samples_to_fade_in) {
-            sample_copy[i] *= i as f32 / samples_to_fade_in as f32;
-        }
-        for i in 0..std::cmp::min(sample_copy.len(), samples_to_fade_out) {
-            sample_copy[i] =
-                sample_copy[sample_copy.len() - i - 1] * (i as f32 / samples_to_fade_out as f32);
-        }
-
-        audio_buffer.buffer.extend(sample_copy);
+        audio_buffer.buffer.extend(data_to_play.iter().copied());
         audio_buffer.is_looped = looped;
         audio_buffer.progress = 0;
+        audio_buffer.fade_in = Fade::new(samples_in_ms(fade_in_ms));
+        audio_buffer.end_fade = samples_in_ms(end_fade_ms).min(data_to_play.len() / 4);
         audio_buffer.is_playing = true;
     });
 }
 
-pub fn add_sound_data_to_channel(
-    channel_id: ChannelId,
-    data_to_play: &[f32],
-    fade_in_ms: f32,
-    fade_out_ms: f32,
-    looped: bool,
-) {
-    let byte_count_needed_for_a_ms =
-        (crate::AUDIO_CHANNELS as f32 * crate::AUDIO_SAMPLE_FREQUENCY as f32) / 1000.0;
-
-    let samples_to_fade_in = (fade_in_ms * byte_count_needed_for_a_ms) as usize;
-    let samples_to_fade_out = (fade_out_ms * byte_count_needed_for_a_ms) as usize;
-
-    // For loop is clearer in this context
-    #[allow(clippy::needless_range_loop)]
+/// Add `data_to_play` after what the channel already plays.
+pub fn add_sound_data_to_channel(channel_id: ChannelId, data_to_play: &[f32], looped: bool) {
     get_audio_buffer(channel_id, |audio_buffer| {
-        let mut sample_copy = data_to_play.to_vec();
-        // Linear fade
-        for i in 0..std::cmp::min(sample_copy.len(), samples_to_fade_in) {
-            sample_copy[i] *= i as f32 / samples_to_fade_in as f32;
-        }
-        for i in 0..std::cmp::min(sample_copy.len(), samples_to_fade_out) {
-            sample_copy[i] =
-                sample_copy[sample_copy.len() - i - 1] * (i as f32 / samples_to_fade_out as f32);
-        }
-
-        audio_buffer.buffer.extend(sample_copy);
+        audio_buffer.buffer.extend(data_to_play.iter().copied());
         audio_buffer.is_looped = looped;
     });
 }
 
-pub fn resume_audio(channel_id: ChannelId) {
+/// Play again a paused sound from where it was, its volume rising over `fade_in_ms`.
+pub fn resume_audio(channel_id: ChannelId, fade_in_ms: f32) {
     get_audio_buffer(channel_id, |audio_buffer| {
         audio_buffer.is_playing = true;
+        audio_buffer.fade_out = None;
+        audio_buffer.fade_in = Fade::new(samples_in_ms(fade_in_ms));
     });
 }
 
-pub fn pause_audio(channel_id: ChannelId) {
+/// Pause a sound, its volume going down to silence over `fade_out_ms` first (0: at once).
+pub fn pause_audio(channel_id: ChannelId, fade_out_ms: f32) {
     get_audio_buffer(channel_id, |audio_buffer| {
-        audio_buffer.is_playing = false;
+        let samples = samples_in_ms(fade_out_ms);
+        if samples == 0 || !audio_buffer.is_playing {
+            audio_buffer.is_playing = false;
+            audio_buffer.fade_out = None;
+        } else {
+            audio_buffer.fade_out = Fade::new(samples);
+        }
     });
 }
 
@@ -237,19 +288,11 @@ pub fn set_volume(channel_id: ChannelId, volume: f32) {
 }
 
 pub fn get_volume(channel_id: ChannelId) -> f32 {
-    let mut volume = 0.0;
-    get_audio_buffer(channel_id, |audio_buffer| {
-        volume = audio_buffer.volume;
-    });
-    volume
+    get_audio_buffer(channel_id, |audio_buffer| audio_buffer.volume)
 }
 
 pub fn is_playing(channel_id: ChannelId) -> bool {
-    let mut is_playing = false;
-    get_audio_buffer(channel_id, |audio_buffer| {
-        is_playing = audio_buffer.is_playing;
-    });
-    is_playing
+    get_audio_buffer(channel_id, |audio_buffer| audio_buffer.is_playing)
 }
 
 pub fn flush_all_samples() {
@@ -257,35 +300,38 @@ pub fn flush_all_samples() {
         let Some(global_audio_queue) = global_audio_queue else {
             return;
         };
-        global_audio_queue.audio_queue.clear();
+        if let Some(audio_queue) = &global_audio_queue.audio_queue {
+            audio_queue.clear();
+        }
         global_audio_queue.audio_buffers.clear();
     });
 }
 
-/// You need to call this regularly for the sound system to work.
-/// At least once every 150ms
+/// You need to call this regularly for the sound system to work: at least once every DURATION_OF_BUFFER_IN_MS
+/// (every frame).
 pub fn update_sound_system() {
-    // How long does a byte take to play (in ms)
-    let byte_count_needed_for_a_ms =
-        (crate::AUDIO_CHANNELS as f32 * crate::AUDIO_SAMPLE_FREQUENCY as f32) / 1000.0;
-    let desired_size = (byte_count_needed_for_a_ms * DURATION_OF_BUFFER_IN_MS) as usize;
+    let desired_samples = samples_in_ms(DURATION_OF_BUFFER_IN_MS);
 
     AUDIO_QUEUE.with_borrow_mut(|global_audio_queue| {
         let Some(global_audio_queue) = global_audio_queue else {
             return;
         };
-
-        let size = global_audio_queue.audio_queue.size() as usize;
-        // We append to the queue enough bytes to be able to play for at least 150ms
-        let number_of_bytes_to_append = desired_size.saturating_sub(size);
-        if number_of_bytes_to_append > 0 {
-            let bytes_to_queue = global_audio_queue.mix_audio(number_of_bytes_to_append);
-            let result = global_audio_queue.audio_queue.queue_audio(&bytes_to_queue);
-            if let Err(result) = result {
+        let Some(device) = &global_audio_queue.audio_queue else {
+            return; // No device: nothing is heard, and nothing plays on
+        };
+        // The device counts what it still has to play in bytes, our samples are f32
+        let queued_samples = device.size() as usize / size_of::<f32>();
+        let samples_to_append = desired_samples.saturating_sub(queued_samples);
+        if samples_to_append > 0 {
+            let samples = global_audio_queue.mix_audio(samples_to_append);
+            let Some(device) = &global_audio_queue.audio_queue else {
+                return;
+            };
+            if let Err(result) = device.queue_audio(&samples) {
                 println!("Failed to queue audio: {:?}", result);
             }
             // Resume all the time, we manage the bytes ourselves.
-            global_audio_queue.audio_queue.resume();
+            device.resume();
         }
     });
 }

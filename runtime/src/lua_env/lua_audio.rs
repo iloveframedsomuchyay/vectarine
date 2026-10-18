@@ -34,30 +34,30 @@ pub fn setup_audio_api(
                 if audio_res.is_finished() {
                     audio_res.play(is_loop, fade_in.map(|f| f as i32));
                 } else {
-                    audio_res.resume();
+                    audio_res.resume(fade_in);
                 }
                 Ok(())
             }
         });
         registry.add_method("pause", {
             let resources = Rc::clone(resources);
-            move |_lua, audio_resource_id, (_fade_out,): (Option<f32>,)| {
+            move |_lua, audio_resource_id, (fade_out,): (Option<f32>,)| {
                 let audio_res = resources.get_by_id::<AudioResource>(audio_resource_id.0);
                 let Ok(audio_res) = audio_res else {
                     return Ok(());
                 };
-                audio_res.pause(); // fade_out not available yet.
+                audio_res.pause(fade_out);
                 Ok(())
             }
         });
         registry.add_method("resume", {
             let resources = Rc::clone(resources);
-            move |_lua, audio_resource_id, (_fade_out,): (Option<f32>,)| {
+            move |_lua, audio_resource_id, (fade_in,): (Option<f32>,)| {
                 let audio_res = resources.get_by_id::<AudioResource>(audio_resource_id.0);
                 let Ok(audio_res) = audio_res else {
                     return Ok(());
                 };
-                audio_res.resume(); // fade_out not available yet.
+                audio_res.resume(fade_in);
                 Ok(())
             }
         });
