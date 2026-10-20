@@ -1,6 +1,5 @@
 # TO-DO
 
-- [ ] When creating a new project, allow to use a gallery project as a template
 - [ ] When exporting, append the .vecta file to the .exe + a magic check sum. Have the runtime read itself to unpack this bundle.
   -> This allows users to distribute games as a single file (which self-decompresses)
 - [ ] Android support
@@ -46,6 +45,7 @@
 
 # Done
 
+- [x] When creating a new project, allow to use a gallery project as a template
 - [x] Add a CLI version of the editor
   - [x] The editor is compiled with -mwindow
   - [x] The CLI can scafold project

@@ -244,6 +244,7 @@ fn get_export_filename(project_info: &ProjectInfo, platform: ExportPlatform) -> 
     )
 }
 
+/// Lists files to be included in the export (recursively)
 fn get_files_in_folder(folder_path: &Path, zip_base_path: &str) -> Vec<(PathBuf, String)> {
     let mut files = Vec::new();
     let Ok(entries) = fs::read_dir(folder_path) else {
@@ -256,7 +257,14 @@ fn get_files_in_folder(folder_path: &Path, zip_base_path: &str) -> Vec<(PathBuf,
         let path = entry.path();
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
+        if file_name.starts_with(".") {
+            continue;
+        }
         if path.is_file() {
+            // Exports are zips. This prevents zip inside zips when exporting multiple times.
+            if file_name.ends_with(".zip") {
+                continue;
+            }
             let zip_path = format!("{}/{}", zip_base_path, file_name);
             files.push((path, zip_path));
         } else if path.is_dir() {
@@ -273,7 +281,7 @@ fn get_project_files(project_path: &Path) -> impl Iterator<Item = (PathBuf, Stri
         .parent()
         .expect("Failed to get game data folder");
     let unexported_folder_names = [
-        "release", "game", "output", "build", "debug", "export", "private", "luau-api",
+        "release", "private", "test", "output", "build", "debug", "export", "private", "luau-api",
     ];
     // Add game data folder
     // Adding .vecta file as executable as you can run it using a shebang.
@@ -301,6 +309,10 @@ fn get_project_files(project_path: &Path) -> impl Iterator<Item = (PathBuf, Stri
         };
         let folder_name = folder_name.to_string_lossy();
         let folder_name = folder_name.as_str();
+        // Don't export hidden files and folder
+        if folder_name.starts_with(".") {
+            continue;
+        }
         if unexported_folder_names.contains(&folder_name) {
             continue;
         }
