@@ -23,7 +23,8 @@ In the editor console, try "warp colonnade", "give bronze_spear" or "heal".
 const mainScriptResource, mainModule = loader.loadScript("scripts/main.luau")
 
 function Update(deltaTime: number)
-	if graphics.drawSplashScreenIfNeeded({ mainScriptResource }) then
+	if not mainScriptResource:isReady() then
+		graphics.drawSplashScreen("Downloading everything we need...")
 		return
 	end
 	if mainModule.Update then

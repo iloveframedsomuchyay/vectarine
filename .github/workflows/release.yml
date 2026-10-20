@@ -31,18 +31,14 @@ jobs:
               with:
                   target: x86_64-pc-windows-msvc
                   cache-all-crates: true
-                  cache-workspace-crates: true
+                  cache-workspace-crates: false
 
             - name: 💾 Cache vcpkg folder
-              id: cache-target-folder
               uses: actions/cache@v6.1.0
               with:
-                path: |
-                  target/vcpkg
-                  target/x86_64-pc-windows-msvc/release/build
-                  target/x86_64-pc-windows-msvc/release/deps
-                  target/x86_64-pc-windows-msvc/release/incremental
-                key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
+                path: target/vcpkg
+                key: ${{ runner.os }}-vcpkg-${{ hashFiles('runtime/Cargo.toml') }}
+                restore-keys: ${{ runner.os }}-vcpkg-
 
             - name: ⚙️ Install cargo-vcpkg 
               run: |
@@ -82,7 +78,7 @@ jobs:
             with:
                 target: x86_64-unknown-linux-gnu
                 cache-all-crates: true
-                cache-workspace-crates: true
+                cache-workspace-crates: false
 
           - name: ⚙️ Install dependencies
             run: sudo apt-get update && sudo apt-get install -y libsdl2-dev libmp3lame-dev libjack-dev libpipewire-0.3-dev
@@ -132,22 +128,12 @@ jobs:
             - name: 🐳 Set up Docker
               uses: docker/setup-docker-action@v5.3.0
 
-            - name: 💾 Cache target folder
-              id: cache-target-folder
-              uses: actions/cache@v6.1.0
-              with:
-                path: |
-                  target/wasm32-unknown-emscripten/release-emscripten/build
-                  target/wasm32-unknown-emscripten/release-emscripten/deps
-                  target/wasm32-unknown-emscripten/release-emscripten/incremental
-                key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
-
             - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
               name: ⚙️ Setup Rust
               with:
                   target: wasm32-unknown-emscripten
                   cache-all-crates: true
-                  cache-workspace-crates: true
+                  cache-workspace-crates: false
 
             - name: 🏗️ Build runtime (web)
               run: RUST_BACKTRACE=1 cargo build -p runtime --target=wasm32-unknown-emscripten --profile release-emscripten
@@ -178,18 +164,14 @@ jobs:
             with:
                 target: aarch64-apple-darwin
                 cache-all-crates: true
-                cache-workspace-crates: true
+                cache-workspace-crates: false
 
           - name: 💾 Cache vcpkg folder
-            id: cache-target-folder
             uses: actions/cache@v6.1.0
             with:
-              path: |
-                target/vcpkg
-                target/aarch64-apple-darwin/release/build
-                target/aarch64-apple-darwin/release/deps
-                target/aarch64-apple-darwin/release/incremental
-              key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/Cargo.toml') }}
+              path: target/vcpkg
+              key: ${{ runner.os }}-vcpkg-${{ hashFiles('runtime/Cargo.toml') }}
+              restore-keys: ${{ runner.os }}-vcpkg-
 
           - name: ⚙️ Install cargo-vcpkg 
             run: |
