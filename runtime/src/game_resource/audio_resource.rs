@@ -1,5 +1,6 @@
 use std::{cell::RefCell, path::Path, rc::Rc};
 
+use rubato::{Fft, FixedSync, Resampler, audioadapter_buffers::direct::InterleavedSlice};
 use symphonia::core::io::MediaSourceStream;
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
 };
 use vectarine_plugin_sdk::egui_glow::glow;
 
-// do not use this, the sample frequency should not be hardcoded (or we need to perform a resampling step)
+/// Sounds are converted to this rate and to stereo when they load, so that they can be mixed together.
 pub static AUDIO_SAMPLE_FREQUENCY: i32 = 48000; // in Hz
 
 pub static AUDIO_CHANNELS: i32 = 2; // Stereo
@@ -100,6 +101,7 @@ impl Resource for AudioResource {
 
         let mut result = Vec::new();
         let mut sample_buffer = Vec::new();
+        let mut channels = 0;
 
         let Some(sample_rate) = audio_codec_params.sample_rate else {
             return Status::Error("Unable to determine the sample rate".to_string());
@@ -115,15 +117,23 @@ impl Resource for AudioResource {
                 continue; // skip this packet if it can't be decoded
             };
 
+            channels = audio_buf.num_planes();
             sample_buffer.resize(audio_buf.samples_interleaved(), 0.0);
             audio_buf.copy_to_slice_interleaved(&mut sample_buffer);
             result.extend_from_slice(&sample_buffer);
         }
 
+        let result = match to_output_format(&result, channels, sample_rate) {
+            Ok(result) => result,
+            Err(cause) => {
+                return Status::Error(format!("Unable to resample the audio: {}", cause));
+            }
+        };
         let sample_count = result.len();
         self.chunk.replace(Some(result.into_boxed_slice()));
 
-        let duration_secs = sample_count as f32 / (sample_rate as f32 * AUDIO_CHANNELS as f32);
+        let duration_secs =
+            sample_count as f32 / (AUDIO_SAMPLE_FREQUENCY as f32 * AUDIO_CHANNELS as f32);
         self.duration.replace(duration_secs);
 
         if self.currently_used_channel.borrow().is_none() {
@@ -169,6 +179,46 @@ impl Resource for AudioResource {
             duration: RefCell::new(0.0),
         }
     }
+}
+
+fn to_output_format(
+    samples: &[f32],
+    channels: usize,
+    sample_rate: u32,
+) -> Result<Vec<f32>, String> {
+    let stereo: Vec<f32> = match channels {
+        0 => Vec::new(),
+        1 => samples
+            .iter()
+            .flat_map(|&sample| [sample, sample])
+            .collect(),
+        2 => samples.to_vec(),
+        _ => samples
+            .chunks_exact(channels)
+            .flat_map(|frame| [frame[0], frame[1]])
+            .collect(),
+    };
+    let output_rate = AUDIO_SAMPLE_FREQUENCY as u32;
+    if sample_rate == output_rate || stereo.is_empty() {
+        return Ok(stereo);
+    }
+
+    let output_channels = AUDIO_CHANNELS as usize;
+    let frames = stereo.len() / output_channels;
+    let mut resampler = Fft::<f32>::new(
+        sample_rate as usize,
+        output_rate as usize,
+        1024,
+        output_channels,
+        FixedSync::Both,
+    )
+    .map_err(|e| e.to_string())?;
+    let input =
+        InterleavedSlice::new(&stereo, output_channels, frames).map_err(|e| e.to_string())?;
+    let output = resampler
+        .process_all(&input, frames, None)
+        .map_err(|e| e.to_string())?;
+    Ok(output.take_data())
 }
 
 /// The fade at the end of a sound that is not looped, in milliseconds
@@ -269,5 +319,55 @@ impl AudioResource {
 
     fn get_channel(&self) -> Option<ChannelId> {
         *self.currently_used_channel.borrow()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AUDIO_SAMPLE_FREQUENCY, to_output_format};
+
+    fn sine(frequency: f32, sample_rate: u32, seconds: f32) -> Vec<f32> {
+        let count = (sample_rate as f32 * seconds) as usize;
+        (0..count)
+            .map(|i| (i as f32 * frequency * std::f32::consts::TAU / sample_rate as f32).sin())
+            .collect()
+    }
+
+    #[test]
+    fn mono_is_duplicated_into_stereo() {
+        let mono = sine(440.0, AUDIO_SAMPLE_FREQUENCY as u32, 0.1);
+        let stereo = to_output_format(&mono, 1, AUDIO_SAMPLE_FREQUENCY as u32).expect("conversion");
+        assert_eq!(stereo.len(), mono.len() * 2);
+        let left = stereo.iter().step_by(2);
+        let right = stereo.iter().skip(1).step_by(2);
+        assert!(
+            left.zip(right)
+                .zip(&mono)
+                .all(|((l, r), m)| l == m && r == m)
+        );
+    }
+
+    #[test]
+    fn other_rates_keep_their_duration_and_pitch() {
+        let mono = sine(440.0, 44100, 1.0);
+        let stereo = to_output_format(&mono, 1, 44100).expect("conversion");
+        assert!(stereo.len().abs_diff(AUDIO_SAMPLE_FREQUENCY as usize * 2) <= 2);
+
+        let left: Vec<f32> = stereo.iter().step_by(2).copied().collect();
+        let middle = &left[left.len() / 4..3 * left.len() / 4];
+        let crossings: Vec<usize> = middle
+            .windows(2)
+            .enumerate()
+            .filter(|(_, w)| w[0] < 0.0 && w[1] >= 0.0)
+            .map(|(i, _)| i)
+            .collect();
+        let periods = (crossings.len() - 1) as f32;
+        let seconds =
+            (crossings[crossings.len() - 1] - crossings[0]) as f32 / AUDIO_SAMPLE_FREQUENCY as f32;
+        let frequency = periods / seconds;
+        assert!(
+            (frequency - 440.0).abs() < 1.0,
+            "{frequency} Hz instead of 440 Hz"
+        );
     }
 }
