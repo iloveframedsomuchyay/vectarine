@@ -21,7 +21,7 @@ local _, animationHelpers = Loader.loadScript("scripts/animation_helpers.luau", 
 local _, coordHelpers = Loader.loadScript("scripts/coord_helpers.luau", require("coord_helpers.luau"))
 local _, drawHelpers = Loader.loadScript("scripts/draw_helpers.luau", require("draw_helpers.luau"))
 
-local sign_image = Loader.loadImage("textures/Signs/small/Sign.png", false)
+local sign_image = Loader.loadImage("textures/signs/small/sign.png", false)
 
 local tileset = Loader.loadTileset("levels/gloomy-forest.tsx")
 
@@ -32,79 +32,79 @@ end
 -- Load the animation frames
 local fire_spirit_animation = {}
 for i = 1, 6 do
-	local img = Loader.loadImage("textures/FireSpirit/fire spirit" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/fire_spirit/fire_spirit" .. tostring(i) .. ".png", false)
 	table.insert(fire_spirit_animation, img)
 end
 
 local pumpkin_animation = {}
 for i = 1, 6 do
-	local img = Loader.loadImage("textures/PumpkinMan/PumpkinMan" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/pumpkin_man/pumpkin_man" .. tostring(i) .. ".png", false)
 	table.insert(pumpkin_animation, img)
 end
 
 local menu_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/menu/Menu" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/menu/menu" .. tostring(i) .. ".png", false)
 	table.insert(menu_animation, img)
 end
 
 local watching_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/watching/watching" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/watching/watching" .. tostring(i) .. ".png", false)
 	table.insert(watching_animation, img)
 end
 
 local water_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/water/water" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/water/water" .. tostring(i) .. ".png", false)
 	table.insert(water_animation, img)
 end
 
 local baba_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/baba/baba" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/baba/baba" .. tostring(i) .. ".png", false)
 	table.insert(baba_animation, img)
 end
 
 local behind_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/behind/behind" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/behind/behind" .. tostring(i) .. ".png", false)
 	table.insert(behind_animation, img)
 end
 
 local directions_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/directions/directions" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/directions/directions" .. tostring(i) .. ".png", false)
 	table.insert(directions_animation, img)
 end
 
 local hiding_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/hiding/hiding" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/hiding/hiding" .. tostring(i) .. ".png", false)
 	table.insert(hiding_animation, img)
 end
 
 local moving_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/moving/moving" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/moving/moving" .. tostring(i) .. ".png", false)
 	table.insert(moving_animation, img)
 end
 
 local nightmare_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/nightmare/nightmare" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/nightmare/nightmare" .. tostring(i) .. ".png", false)
 	table.insert(nightmare_animation, img)
 end
 
 local quiet_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/quiet/quiet" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/quiet/quiet" .. tostring(i) .. ".png", false)
 	table.insert(quiet_animation, img)
 end
 
 local running_animation = {}
 for i = 1, 14 do
-	local img = Loader.loadImage("textures/Signs/running/running" .. tostring(i) .. ".png", false)
+	local img = Loader.loadImage("textures/signs/running/running" .. tostring(i) .. ".png", false)
 	table.insert(running_animation, img)
 end
 
@@ -355,11 +355,13 @@ function render_sign_overlay()
 		current_asset:draw(display_pos, display_size)
 
 		if GameState.waiting_for_input and GameState.displayed_asset_name == "menu" then
-			local text = ui.text(V2(1.5, 0.5), {}, function()
-				return { text = "Use WASD or the Arrow keys to move", color = vec4.WHITE }
-			end)
-			local stack = ui.stack({ alignX = "center", alignY = "center" }, {
-				text,
+			local stack = ui.stack({ alignX = "center", alignY = "start" }, {
+				ui.column({ align = "center" }, {
+					ui.text("Use WASD or the Arrow keys to move", { color = vec4.WHITE }),
+					ui.text("Collect and burn the signs to survive the night.", { color = vec4.WHITE }),
+					ui.spacer(vec.V2(0, 0.05)),
+					ui.text("Press any key to start.", { color = vec4.WHITE }),
+				}),
 				ui.widget(vec.V2(2, 2), function() end),
 			})
 			stack:draw({})

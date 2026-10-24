@@ -5,7 +5,7 @@ const V2 = vec.V2
 
 local pumpkin_animation = {}
 for i = 1, 6 do
-	local img = loader.loadImage("textures/PumpkinMan/PumpkinMan" .. tostring(i) .. ".png", false)
+	local img = loader.loadImage("textures/pumpkin_man/pumpkin_man" .. tostring(i) .. ".png", false)
 	table.insert(pumpkin_animation, img)
 end
 

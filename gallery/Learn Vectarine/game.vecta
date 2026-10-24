@@ -5,6 +5,6 @@ tags = ["tutorial", "prototype"]
 description = "Open this project to discover how vectarine works!"
 loading_animation = "pixel"
 plugins = []
-logo_path = "assets/logo.png"
+logo_path = "textures/logo.png"
 default_screen_width = 800
 default_screen_height = 600
