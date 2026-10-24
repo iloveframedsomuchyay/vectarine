@@ -4,13 +4,13 @@ local loader = require("@vectarine/loader")
 
 local _, eventHelpers = loader.loadScript("scripts/event_helpers.luau", require("event_helpers.luau"))
 
-local ambiantMusic = loader.loadAudio("audio/game_music.wav")
-local popSound = loader.loadAudio("audio/short_fire_whoosh.wav")
-local fireOnsetSound = loader.loadAudio("audio/fire_onset.wav")
-local candleBlowSound = loader.loadAudio("audio/candle_blow.wav")
-local deathMusic = loader.loadAudio("audio/death_music.wav")
-local creepySound = loader.loadAudio("audio/creepy_sound.wav")
-local battleMusic = loader.loadAudio("audio/battle_music.wav")
+local ambiantMusic = loader.loadAudio("audio/game_music.mp3")
+local popSound = loader.loadAudio("audio/short_fire_whoosh.mp3")
+local fireOnsetSound = loader.loadAudio("audio/fire_onset.mp3")
+local candleBlowSound = loader.loadAudio("audio/candle_blow.mp3")
+local deathMusic = loader.loadAudio("audio/death_music.mp3")
+local creepySound = loader.loadAudio("audio/creepy_sound.mp3")
+local battleMusic = loader.loadAudio("audio/battle_music.mp3")
 
 local ambiantIsNotPlaying = true
 
