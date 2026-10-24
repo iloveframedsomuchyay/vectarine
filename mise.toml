@@ -68,10 +68,11 @@ arg "<output_path>"
 arg "<target>" help="windows, linux, mac-os or web"
 arg "[is_obfuscated]" default="true"
 flag "--debug-web" help="Use a debug build of the web runtime"
+flag "--debug-native" help="Use a debug build of the runtime of the current platform"
 flag "--serve" help="Serve the export on http://localhost:8000"
 '''
 dir = "{{cwd}}"
-run = 'uv run "{{config_root}}/scripts/run-bundled-cli.py" {% if usage.debug_web %}--debug-web {% endif %}{% if usage.serve %}--serve {% endif %}--export-folder "{{usage.output_path}}" export --project "{{usage.project_path}}" --target "{{usage.target}}" --obfuscate "{{usage.is_obfuscated}}"'
+run = 'uv run "{{config_root}}/scripts/run-bundled-cli.py" {% if usage.debug_web %}--debug-web {% endif %}{% if usage.debug_native %}--debug-native {% endif %}{% if usage.serve %}--serve {% endif %}--export-folder "{{usage.output_path}}" export --project "{{usage.project_path}}" --target "{{usage.target}}" --obfuscate "{{usage.is_obfuscated}}"'
 
 [tasks.release]
 description = "Create a new release"

@@ -52,6 +52,7 @@ pub fn lib_main() {
                 }
                 Err(e) => {
                     eprintln!("Error exporting project: {:?}", e);
+                    std::process::exit(1); // This is a CLI, so crashing is fine (this is not true in the editor).
                 }
             }
         }

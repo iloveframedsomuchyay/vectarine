@@ -541,6 +541,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+
+[[package]]
 name = "byteorder-lite"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -786,6 +792,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "debug-ignore"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffe7ed1d93f4553003e20b629abe9085e1e81b1429520f897f8f8860bc6dfc21"
+
+[[package]]
 name = "deflate64"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -914,6 +926,21 @@ dependencies = [
  "vectarine-plugin-sdk",
  "which",
  "winresource",
+]
+
+[[package]]
+name = "editpe"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de488f8727e67269a918bcb5b35b1b9ee59b2ae2859743ffdd6288de9701c5e6"
+dependencies = [
+ "debug-ignore",
+ "foldhash 0.2.0",
+ "image",
+ "indexmap",
+ "log",
+ "thiserror",
+ "zerocopy",
 ]
 
 [[package]]
@@ -1624,6 +1651,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "icns"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f55019ac1db606ff01afed8a9d18d91b83e6463da421084f767c89026467b619"
+dependencies = [
+ "byteorder",
+ "png",
 ]
 
 [[package]]
@@ -3131,6 +3168,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "bincode",
+ "directories",
  "emscripten-functions",
  "emscripten-val",
  "fontdue",
@@ -4032,6 +4070,8 @@ dependencies = [
  "chrono",
  "clap",
  "directories",
+ "editpe",
+ "icns",
  "regex",
  "runtime",
  "vectarine-plugin-sdk",

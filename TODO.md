@@ -1,7 +1,5 @@
 # TO-DO
 
-- [ ] When exporting, append the .vecta file to the .exe + a magic check sum. Have the runtime read itself to unpack this bundle.
-  -> This allows users to distribute games as a single file (which self-decompresses)
 - [ ] Android support
 - [ ] Add a text input widget (to the best of your ability...)
 - [ ] Better heap info
@@ -45,6 +43,8 @@
 
 # Done
 
+- [x] When exporting, append the .vecta file to the .exe + a magic check sum. Have the runtime read itself to unpack this bundle.
+  -> This allows users to distribute games as a single file (which self-decompresses)
 - [x] When creating a new project, allow to use a gallery project as a template
 - [x] Add a CLI version of the editor
   - [x] The editor is compiled with -mwindow

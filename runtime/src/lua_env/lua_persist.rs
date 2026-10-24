@@ -1,9 +1,14 @@
-use std::{fs::OpenOptions, io::Write, path::PathBuf};
+use std::{
+    fs::OpenOptions,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use serde_json;
 use vectarine_plugin_sdk::mlua::LuaSerdeExt;
 
 use crate::lua_env::add_fn_to_table;
+use crate::projectinfo::ProjectInfo;
 
 fn serialize_lua(
     lua: &vectarine_plugin_sdk::mlua::Lua,
@@ -27,7 +32,16 @@ fn deserialize_lua(
     lua.to_value(&json_value)
 }
 
-fn get_kv_store_path() -> std::path::PathBuf {
+#[cfg(target_os = "macos")]
+fn get_kv_store_path(project_info: &ProjectInfo) -> PathBuf {
+    if let Some(dirs) = directories::ProjectDirs::from("com", "vanyle", "vectarine") {
+        return dirs.data_dir().join(project_info.get_file_name());
+    }
+    PathBuf::from("data")
+}
+
+#[cfg(not(target_os = "macos"))]
+fn get_kv_store_path(_project_info: &ProjectInfo) -> PathBuf {
     let exec_path = std::env::current_exe().ok();
     let data_folder = exec_path.and_then(|p| p.parent().map(|p| p.join("data")));
     if let Some(data_folder) = data_folder {
@@ -36,9 +50,8 @@ fn get_kv_store_path() -> std::path::PathBuf {
     PathBuf::from("data")
 }
 
-fn save_data_in_kv_store(key: String, value: Box<[u8]>) {
-    let path = get_kv_store_path();
-    let path = path.join(format!("{}.bin", key));
+fn save_data_in_kv_store(store_path: &Path, key: String, value: Box<[u8]>) {
+    let path = store_path.join(format!("{}.bin", key));
     let prefix = path.parent().expect("No parent");
     std::fs::create_dir_all(prefix).expect("Unable to create directory");
     let mut file = match OpenOptions::new()
@@ -68,16 +81,17 @@ fn save_data_in_kv_store(key: String, value: Box<[u8]>) {
     }
 }
 
-fn load_data_from_kv_store(key: String) -> Option<Box<[u8]>> {
-    let path = get_kv_store_path();
-    let path = path.join(format!("{}.bin", key));
+fn load_data_from_kv_store(store_path: &Path, key: String) -> Option<Box<[u8]>> {
+    let path = store_path.join(format!("{}.bin", key));
     std::fs::read(&path).ok().map(|v| v.into_boxed_slice())
 }
 
 pub fn setup_persist_api(
     lua: &vectarine_plugin_sdk::mlua::Lua,
+    project_info: &ProjectInfo,
 ) -> vectarine_plugin_sdk::mlua::Result<vectarine_plugin_sdk::mlua::Table> {
     let persist_module = lua.create_table()?;
+    let store_path = get_kv_store_path(project_info);
 
     add_fn_to_table(lua, &persist_module, "onReload", {
         move |lua, (default_value, global_name): (vectarine_plugin_sdk::mlua::Value, String)| {
@@ -109,8 +123,9 @@ pub fn setup_persist_api(
     });
 
     add_fn_to_table(lua, &persist_module, "load", {
+        let store_path = store_path.clone();
         move |lua, (key,): (String,)| {
-            let data = load_data_from_kv_store(key);
+            let data = load_data_from_kv_store(&store_path, key);
             let Some(data) = data else {
                 return Ok(vectarine_plugin_sdk::mlua::Nil);
             };
@@ -121,7 +136,7 @@ pub fn setup_persist_api(
     add_fn_to_table(lua, &persist_module, "save", {
         move |lua, (key, value): (String, vectarine_plugin_sdk::mlua::Value)| {
             let value = serialize_lua(lua, &value);
-            save_data_in_kv_store(key, value);
+            save_data_in_kv_store(&store_path, key, value);
             Ok(())
         }
     });
@@ -138,10 +153,27 @@ mod tests {
         let key = "test_key".to_string();
         let data = vec![1, 2, 3, 4, 5].into_boxed_slice();
 
-        save_data_in_kv_store(key.clone(), data.clone());
-        let loaded = load_data_from_kv_store(key);
+        let store_path = std::env::temp_dir().join("vectarine-persist-test");
+        save_data_in_kv_store(&store_path, key.clone(), data.clone());
+        let loaded = load_data_from_kv_store(&store_path, key);
+        let _ = std::fs::remove_dir_all(&store_path);
 
         assert_eq!(Some(data), loaded);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_store_is_in_application_support() {
+        let project_info = ProjectInfo {
+            title: "My: Game".to_string(),
+            ..Default::default()
+        };
+        let path = get_kv_store_path(&project_info);
+        assert!(
+            path.ends_with("Library/Application Support/com.vanyle.vectarine/My Game"),
+            "{}",
+            path.display()
+        );
     }
 
     #[test]

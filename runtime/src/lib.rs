@@ -34,10 +34,7 @@ pub use vectarine_plugin_sdk::toml;
 
 use std::{cell::RefCell, mem::ManuallyDrop, rc::Rc, sync::Arc};
 
-use sdl2::{
-    VideoSubsystem,
-    video::Window,
-};
+use sdl2::{VideoSubsystem, video::Window};
 
 use crate::{
     game_resource::audio_resource::{AUDIO_CHANNELS, AUDIO_SAMPLE_FREQUENCY},

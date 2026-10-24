@@ -20,6 +20,9 @@ futures = "0.3.33"
 [target.'cfg(not(target_os = "emscripten"))'.dependencies]
 libloading = "0.9.0"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+directories = "6.0.0"
+
 [target.'cfg(target_os = "emscripten")'.dependencies]
 emscripten-val = { git = "https://github.com/vanyle/emscripten-val", package = "emscripten-val", rev = "2f77cc9" }
 emscripten-functions = "0.3.0"

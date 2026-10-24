@@ -38,7 +38,7 @@ mise test-export gallery/game.vecta personal/tmp-export web --debug-web --serve
 ```
 
 This exports with the latest GitHub release (cached in `target/latest-release`), where the editor and the CLI are replaced by debug builds of the current code.
-`--debug-web` also replaces the web runtime by a debug build, and `--serve` serves the export on http://localhost:8000.
+`--debug-web` and `--debug-native` also replace the web runtime or the runtime of the current platform by a debug build, and `--serve` serves the export on http://localhost:8000.
 
 ## Using threads in the web build
 

@@ -10,6 +10,8 @@ runtime = { path = "../runtime" }
 zip = "6.0.0"
 regex = "1.12.2"
 directories = "6.0.0"
+editpe = "0.2.4"
+icns = { version = "0.5.0", default-features = false, features = ["pngio"] }
 
 [build-dependencies]
 chrono = "0.4.45"

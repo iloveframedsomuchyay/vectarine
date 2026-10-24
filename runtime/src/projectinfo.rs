@@ -16,6 +16,22 @@ pub struct ProjectInfo {
     pub vectarine_version: Option<String>,
 }
 
+impl ProjectInfo {
+    pub fn get_file_name(&self) -> String {
+        let name: String = self
+            .title
+            .chars()
+            .filter(|c| !r#"<>:"/\|?*"#.contains(*c) && !c.is_control())
+            .collect();
+        let name = name.trim().trim_end_matches('.');
+        if name.is_empty() {
+            "game".to_string()
+        } else {
+            name.to_string()
+        }
+    }
+}
+
 impl Default for ProjectInfo {
     fn default() -> Self {
         Self {

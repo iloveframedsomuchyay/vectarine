@@ -15,6 +15,7 @@ Usage: uv run scripts/run-bundled-cli.py export --project path/to/game.vecta --t
 Options before the CLI arguments:
 --export-folder path/to/folder: extract the exported zip into that folder
 --debug-web: replace the web runtime of the release by a debug build of the current code
+--debug-native: same for the runtime of the current platform
 --serve: serve the export folder on http://localhost:8000
 """
 
@@ -38,7 +39,7 @@ RELEASE_API_URL = "https://api.github.com/repos/vanyle/vectarine/releases/latest
 root_path = Path(__file__).parent.parent
 cache_path = root_path / "target" / "latest-release"
 bundle_path = cache_path / "bundle"
-release_web_path = cache_path / "release-web"
+release_runtimes_path = cache_path / "release-runtimes"
 web_files = ["runtime.js", "runtime.wasm", "index.html"]
 exe = ".exe" if os.name == "nt" else ""
 
@@ -46,12 +47,15 @@ match platform.system():
     case "Darwin":
         release_name = "vectarine.macos.arm64"
         editor_in_bundle = "VectarineEditor.app/VectarineEditor"
+        native_runtime = "runtime-macos"
     case "Windows":
         release_name = "vectarine.windows.x86_64"
         editor_in_bundle = "VectarineEditor.exe"
+        native_runtime = "runtime.exe"
     case _:
         release_name = "vectarine.linux.x86_64"
         editor_in_bundle = "VectarineEditor"
+        native_runtime = "runtime-linux"
 cli_in_bundle = f"vecta{exe}"
 
 
@@ -90,7 +94,7 @@ def update_release() -> None:
         return
 
     tag, url = latest
-    if tag == cached_tag and bundle_path.exists() and release_web_path.exists():
+    if tag == cached_tag and bundle_path.exists() and release_runtimes_path.exists():
         return
 
     console.print(f"[blue]Downloading release {tag} from {url}")
@@ -102,10 +106,10 @@ def update_release() -> None:
     shutil.rmtree(bundle_path, ignore_errors=True)
     extract_with_permissions(zip_path, bundle_path)
     zip_path.unlink()
-    shutil.rmtree(release_web_path, ignore_errors=True)
-    release_web_path.mkdir()
-    for name in web_files:
-        shutil.copy2(bundle_path / name, release_web_path / name)
+    shutil.rmtree(release_runtimes_path, ignore_errors=True)
+    release_runtimes_path.mkdir()
+    for name in [*web_files, native_runtime]:
+        shutil.copy2(bundle_path / name, release_runtimes_path / name)
     tag_file.write_text(tag)
 
 
@@ -120,35 +124,46 @@ def build_and_swap_executables() -> None:
         shutil.copy2(built_path / built, bundle_path / in_bundle)
 
 
-def swap_web_runtime(debug_web: bool) -> None:
+def swap_runtimes(debug_web: bool, debug_native: bool) -> None:
     if debug_web:
         console.print("[blue]Building the web runtime")
         subprocess.run(["cargo", "build", "-p", "runtime", "--target", "wasm32-unknown-emscripten"], cwd=root_path, check=True)
         built_path = root_path / "target" / "wasm32-unknown-emscripten" / "debug"
-        sources = [built_path / "runtime.js", built_path / "runtime.wasm", root_path / "index.html"]
+        sources = {name: built_path / name for name in ["runtime.js", "runtime.wasm"]}
+        sources["index.html"] = root_path / "index.html"
     else:
-        sources = [release_web_path / name for name in web_files]
+        sources = {name: release_runtimes_path / name for name in web_files}
+
+    if debug_native:
+        console.print("[blue]Building the runtime")
+        subprocess.run(["cargo", "build", "-p", "runtime"], cwd=root_path, check=True)
+        sources[native_runtime] = root_path / "target" / "debug" / f"runtime{exe}"
+    else:
+        sources[native_runtime] = release_runtimes_path / native_runtime
 
     for folder in [bundle_path, bundle_path / "VectarineEditor.app"]:
         if folder.exists():
-            for source in sources:
-                shutil.copy2(source, folder / source.name)
+            for name, source in sources.items():
+                (folder / name).unlink(missing_ok=True)
+                shutil.copy2(source, folder / name)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--export-folder", type=Path)
     parser.add_argument("--debug-web", action="store_true")
+    parser.add_argument("--debug-native", action="store_true")
     parser.add_argument("--serve", action="store_true")
     options, cli_args = parser.parse_known_args()
     export_folder = options.export_folder
     if export_folder is not None:
         export_zip = export_folder.with_name(f"{export_folder.name}.zip")
+        export_folder.parent.mkdir(parents=True, exist_ok=True)
         cli_args = [*cli_args, "--output", str(export_zip)]
 
     update_release()
     build_and_swap_executables()
-    swap_web_runtime(options.debug_web)
+    swap_runtimes(options.debug_web, options.debug_native)
     cli_path = bundle_path / cli_in_bundle
     console.print(f"[blue]Running {cli_path} {' '.join(cli_args)}")
     returncode = subprocess.run([str(cli_path), *cli_args]).returncode

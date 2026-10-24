@@ -250,8 +250,10 @@ pub fn setup_graphics_api(
 
     // MARK: Splash screen
 
-    let logo_bytes = include_bytes!("../../../assets/logo.png");
-    let logo_data = image::load_from_memory_with_format(logo_bytes, image::ImageFormat::Png)
+    let logo_data = image::load_from_memory_with_format(
+        crate::graphics::VECTARINE_LOGO_PNG,
+        image::ImageFormat::Png,
+    )
         .expect("The logo image should be valid");
     let logo = Arc::new(Texture::new_rgba(
         batch.borrow().drawing_target.gl(),

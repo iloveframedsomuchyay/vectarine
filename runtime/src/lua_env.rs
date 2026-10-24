@@ -30,6 +30,7 @@ use crate::game_resource::ResourceManager;
 use crate::game_resource::script_resource::ScriptResource;
 use crate::graphics::batchdraw::BatchDraw2d;
 use crate::io::IoEnvState;
+use crate::projectinfo::ProjectInfo;
 
 use crate::metrics::MetricsHolder;
 
@@ -178,6 +179,7 @@ impl LuaEnvironment {
         batch: BatchDraw2d,
         metrics: Rc<RefCell<MetricsHolder>>,
         resources: Rc<ResourceManager>,
+        project_info: &ProjectInfo,
     ) -> Self {
         let batch = Rc::new(RefCell::new(batch));
         let lua_options = vectarine_plugin_sdk::mlua::LuaOptions::default();
@@ -234,7 +236,7 @@ impl LuaEnvironment {
 
         let env_state = Rc::new(RefCell::new(IoEnvState::default()));
 
-        let persist_module = lua_persist::setup_persist_api(&lua_handle.lua).unwrap();
+        let persist_module = lua_persist::setup_persist_api(&lua_handle.lua, project_info).unwrap();
         register_vectarine_module(&lua_handle.lua, "persist", persist_module);
 
         let vec2_module = lua_vec2::setup_vec_api(&lua_handle.lua).unwrap();

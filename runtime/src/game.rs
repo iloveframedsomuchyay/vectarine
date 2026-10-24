@@ -71,7 +71,7 @@ impl Game {
             &project_info.plugins,
             &resources.clone(),
             move |plugin_environment| {
-                let lua_env = LuaEnvironment::new(batch, metrics.clone(), resources);
+                let lua_env = LuaEnvironment::new(batch, metrics.clone(), resources, project_info);
 
                 // Make the game!
                 let mut game = Game::from_lua(
@@ -134,7 +134,7 @@ impl Game {
         let metrics = Rc::new(RefCell::new(MetricsHolder::new()));
         let resources = Rc::new(ResourceManager::new(file_system, project_dir));
 
-        let lua_env = LuaEnvironment::new(batch, metrics.clone(), resources);
+        let lua_env = LuaEnvironment::new(batch, metrics.clone(), resources, project_info);
 
         let mut game = Game::from_lua(
             &gl,

@@ -34,21 +34,31 @@ Editable projects have the following file structure:
 
 ## Runtime form
 
-The runtime form is optimized for performance, small size and fast loading.
-The `luau` compiler is used to compiler the different lua chunks
-The assets are processed using a pipeline system so that everything is optimized and loads quickly.
+The runtime form is optimized for small size and fast loading: scripts are compiled to Luau bytecode and the game data is packed into a zip, the bundle.
 
-Everything is put into one file compressed with zstd and named `bundle.vecta` too. Encryption can optionally be added to make reverse engineering slighltly harder.
+An export is a zip containing:
 
-```
-├── bundle.vecta
-└── game.exe
-```
+| Platform | Content                                                       |
+| -------- | ------------------------------------------------------------- |
+| Windows  | `<title>.exe`, with the bundle appended                       |
+| Linux    | `<title>`, with the bundle appended                           |
+| macOS    | `<title>.app`, with the bundle in `Contents/Resources`        |
+| Web      | `index.html`, `runtime.js`, `runtime.wasm` and `bundle.vecta` |
+
+On Windows and macOS, the icon is the logo of the game, or the Vectarine logo if it has none.
+
+An appended bundle is followed by its size (`u64`, little endian) and the magic string `VECTAPAK`.
+Without obfuscation, the bundle is replaced by a `gamedata` folder.
+
+The runtime looks for the game in this order:
+
+1. The bundle appended to its executable
+2. `bundle.vecta` in the working directory
+3. `gamedata` in the working directory
+
+Inside a macOS application, the working directory is first set to `Contents/Resources`.
 
 On desktop, because plugins need to be stored as file to be loaded as dynamic libraries, `game.exe` will first extract the plugins to a `plugins` folder next to the game if such a folder does not exist.
-
-For development convenience, `game.exe` will look for the `bundle.vecta` file in the current working directory (and not next to the executable).
-If there is no `bundle.vecta` there, `game.exe` will then look for an uncompressed `gamedata` folder at the current working directory.
 
 ## Pipeline
 
