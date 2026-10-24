@@ -106,7 +106,7 @@ local function kill(game: types.Game, monster: types.Monster, species: monsters.
 		-- Where the player's story can end from here: the throne (her crown), or the Tide Road (the gate in the harbor)
 		game.events[#game.events + 1] = {
 			kind = "message",
-			text = "The Tidemother falls, and her crown rolls to your feet. The great wheel of the Engine shudders and stops drinking the tide. Far away, in the dry harbor, a gate of bronze grinds open: cold air rushes up through it, towards the sun.",
+			text = "The Tidemother falls, and her crown rolls to your feet. The great wheel of the Engine shudders and stops drinking the tide. With her seal broken, far away in the dry harbor, the gate of the Tide Road grinds open: cold air rushes up through it, towards the sun.",
 		}
 	end
 	local sheet = if species.size == 2 then "bosses" else "characters"

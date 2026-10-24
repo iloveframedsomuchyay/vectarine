@@ -211,6 +211,10 @@ end
 function module.update(game: types.Game, input: Input, dt: number)
 	local player = game.player
 	if player.hp <= 0 then
+		-- Out of health, whatever took it (a bite, then poison or the cold while still invincible from the bite):
+		-- the player faints. Never a frozen player at "-0" (the screen ignores the event once already fainting).
+		player.hp = 0
+		game.events[#game.events + 1] = { kind = "fainted" }
 		return
 	end
 	god_mode.protect(game, player_rules.maxHp(player))

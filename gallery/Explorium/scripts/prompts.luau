@@ -22,6 +22,8 @@ export type Prompt = {
 module.NOTEBOOK_KEY = "Q"
 --- The key that turns the pages of the notebook (at the same place on QWERTY and AZERTY keyboards)
 module.PAGE_KEY = "E"
+--- The key that opens the pause menu (Escape too, but on the web Escape leaves the fullscreen: the prompts show P)
+module.PAUSE_KEY = "P"
 
 --- What is printed on the key at the position of `scancode` on the player's keyboard ("A" for "Q" on AZERTY)
 function module.keyName(scancode: string): string
@@ -50,7 +52,7 @@ function module.forPlay(attack: string, interact: string?): { Prompt }
 		table.insert(list, { key = "e", label = interact })
 	end
 	table.insert(list, { key = module.keyIcon(module.NOTEBOOK_KEY), label = "Notebook" })
-	table.insert(list, { key = "esc", label = "Pause" })
+	table.insert(list, { key = module.keyIcon(module.PAUSE_KEY), label = "Pause" })
 	return list
 end
 

@@ -188,6 +188,8 @@ module.list = {
 	{ name = "plaza", walkable = true, flyable = true, sprites = { "world/plaza" } },
 	-- The basin of the water lock of the palace gate: dry until the great pump of the Foundry runs
 	{ name = "basin_bed", walkable = false, flyable = true, autotile = "canal", wet = "canal_water", wetFlag = "open:foundry_pump" },
+	--- A deep basin of the desert: an empty pit, too deep to cross, until the Great Pump fills it (then only by boat)
+	{ name = "dry_basin", walkable = false, flyable = true, autotile = "chasm", wet = "water" },
 	{ name = "stone_bridge", walkable = true, flyable = true, sprites = { "world/stone_bridge" }, autotile = "stone_bridge", under = "cobbles" },
 	-- The insides of the buildings of the city: wooden boards, plastered walls with a wainscot, dark wall tops
 	{ name = "boards", walkable = true, flyable = true, sprites = variants("boards", 2) },

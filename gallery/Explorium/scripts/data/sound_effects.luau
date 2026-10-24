@@ -30,6 +30,7 @@ return {
 	["travel"] = { variants = 2, volume = 0.4 },
 	["stairs"] = { variants = 1, volume = 0.6 },
 	["teleport"] = { variants = 1, volume = 0.7 },
+	["teleporter_wake"] = { variants = 1, volume = 0.75 },
 	["level_up"] = { variants = 1, volume = 0.7 },
 	["artefact"] = { variants = 1, volume = 0.75 },
 	["rest"] = { variants = 1, volume = 0.6 },

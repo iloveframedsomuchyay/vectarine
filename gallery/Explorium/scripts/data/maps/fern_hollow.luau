@@ -25,7 +25,8 @@ return {
 		t = { prop = "tablet", data = { lore = "tunnelers" } },
 		l = { item = "lucky_shell" },
 		C = { prop = "chest", data = { items = { { "satchel", 1 }, { "bandage", 2 } } } },
-		-- Only reached by boat, with the ferry of the wetlands: on an islet in the corner of the western pool
+		-- Only reached by boat, with the ferry of the wetlands: on an islet against the west wall, in the middle of the
+		-- western pool (two tiles of water from every shore: no reaching over from the bank)
 		b = { prop = "chest", data = { items = { { "energy_core", 1 }, { "nettle_tonic", 2 }, { "fig", 8 } } } },
 		-- A veil of the sea people (only dreamers pass, see dream.luau): the first cache of M., found on the frontier
 		v = { ground = "veil" },
@@ -63,8 +64,8 @@ return {
 		"###WWW..~~~~~~,,,,,!.........~~~~~~~~M.....%.###",
 		"###WWW~~~~~,,,,,,,,,,.......~~~L~~~~~~M.....WW##",
 		"###b~~~~;;;;,,,,,,,,......0.~~~~~~~L~~......%h##",
-		"###~X..&;;;;s,,,,,,,,.......M~~~~~~~~~;;..;.%%##",
-		"###^....;;;,,,,,,,,,..........~~L~~~~;;;s;;;;.##",
+		"###~~~~~;;;;s,,,,,,,,.......M~~~~~~~~~;;..;.%%##",
+		"###~~~..;;;,,,,,,,,,..........~~L~~~~;;;s;;;;.##",
 		"###..c....,,.,,,.,,...........mM~~~~;;;;;s;;;.##",
 		"###...%....#WWW....m.................;;;;;;;..##",
 		"###..^..O..v...#.&.........r...%.....;s;;;;;p.##",

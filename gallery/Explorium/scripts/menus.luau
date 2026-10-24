@@ -7,7 +7,7 @@ In-game menus, opened over the world while the game is paused:
 - pause
 
 Menus read the keyboard themselves (arrows, Space, X, E, the notebook key, Escape): they are part of the interface, not of the rules.
-The notebook key opens and closes the notebook, E turns its pages, Escape closes any menu.
+The notebook key opens and closes the notebook, E turns its pages, Escape closes any menu (E the others, P the pause).
 `update` returns false when the menu closes.
 ]]
 const audio = require("./audio")
@@ -647,17 +647,26 @@ local function drawStorage(game: types.Game, menu: Menu, area: { pos: vec.Vec2, 
 	end
 end
 
+--- The teleporters the player woke up, in the order of the journey (the order of the levels, like the map)
 local function teleporters(game: types.Game): { { key: string, name: string } }
-	local list: { { key: string, name: string } } = {}
+	local rank: { [string]: number } = {}
+	for i, id in levels.order do
+		rank[id] = i
+	end
+	type Entry = { key: string, name: string, rank: number }
+	local list: { Entry } = {}
 	for flag, value in game.flags do
 		if type(value) == "table" and string.sub(flag, 1, 11) == "teleporter:" then
-			table.insert(list, { key = string.sub(flag, 12), name = value.name })
+			table.insert(list, { key = string.sub(flag, 12), name = value.name, rank = rank[value.level] or math.huge })
 		end
 	end
-	table.sort(list, function(a: { key: string, name: string }, b: { key: string, name: string }): boolean
+	table.sort(list, function(a: Entry, b: Entry): boolean
+		if a.rank ~= b.rank then
+			return a.rank < b.rank
+		end
 		return a.name < b.name
 	end)
-	return list
+	return list :: any
 end
 
 local function drawTeleport(game: types.Game, menu: Menu, area: { pos: vec.Vec2, size: vec.Vec2 })
@@ -708,7 +717,7 @@ function module.update(game: types.Game): { kind: string, [string]: any }?
 	if not menu then
 		return nil
 	end
-	if pressed("Escape") or (menu.kind ~= "notebook" and pressed("E")) then
+	if pressed("Escape") or (menu.kind ~= "notebook" and pressed("E")) or (menu.kind == "pause" and pressed(prompts.PAUSE_KEY)) then
 		module.close()
 		return nil
 	end
@@ -772,7 +781,8 @@ function module.prompts(game: types.Game): { { key: string, label: string } }
 		return {}
 	end
 	if menu.kind == "notebook" then
-		local list = { { key = string.lower(prompts.PAGE_KEY), label = "Next page" }, { key = "esc", label = "Close" } }
+		-- Never Escape in the prompts: on the web it leaves the fullscreen (it still closes menus)
+		local list = { { key = string.lower(prompts.PAGE_KEY), label = "Next page" }, { key = prompts.keyIcon(prompts.NOTEBOOK_KEY), label = "Close" } }
 		if menu.page == 4 and #map_view.visited(game) > 1 then
 			table.insert(list, 1, { key = "arrows", label = "Other places" })
 		elseif menu.page == 3 and deepestFloor(game) > 1 then
@@ -784,11 +794,11 @@ function module.prompts(game: types.Game): { { key: string, label: string } }
 		end
 		return list
 	elseif menu.kind == "storage" then
-		return { { key = "arrows", label = "Choose" }, { key = "space", label = "Move" }, { key = "esc", label = "Close" } }
+		return { { key = "arrows", label = "Choose" }, { key = "space", label = "Move" }, { key = "e", label = "Close" } }
 	elseif menu.kind == "shop" then
-		return { { key = "space", label = "Buy" }, { key = "esc", label = "Close" } }
+		return { { key = "space", label = "Buy" }, { key = "e", label = "Close" } }
 	end
-	return { { key = "space", label = "Choose" }, { key = "esc", label = "Close" } }
+	return { { key = "space", label = "Choose" }, { key = "e", label = "Close" } }
 end
 
 function module.draw(game: types.Game, area: { pos: vec.Vec2, size: vec.Vec2 })

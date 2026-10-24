@@ -4,7 +4,8 @@ to the south-east: sand worms hide in it. Once the Great Pump runs again, the ca
 bridges cross them.
 North of the canal stands the facade of the Great Pump: a sealed bronze gate, and next to it, a sun eye in the wall.
 An arrow wakes the eye and opens the gate (the tablet in front of it says so, for those who can read it).
-A cracked wall in the south-west hides an alcove with a page of the lexicon (Clack's scouts saw the cracks).
+A cracked wall in the south-west hides an alcove with a page of the lexicon (Clack's scouts saw the cracks): the only
+way in is a bomb.
 ]]
 const legend = require("../legend")
 
@@ -22,8 +23,10 @@ return {
 		t = { prop = "tablet", data = { lore = "pump_gate" } },
 		c = { prop = "chest", data = { items = { { "lexicon_page", 1 }, { "bomb", 2 }, { "fig", 3 } } } },
 		k = { prop = "chest", data = { items = { { "bronze_khopesh", 1 }, { "prickly_pear", 2 } } } },
-		-- At the end of the south-east canal, a basin always full: only reached by boat
+		-- At the end of the south-east canal, a deep basin: dry and too deep to cross, until the Great Pump fills it;
+		-- then only reached by boat
 		h = { prop = "chest", data = { items = { { "bomb", 4 }, { "energy_core", 1 }, { "fig", 6 } } } },
+		["~"] = { ground = "dry_basin" },
 		w = { ground = "canal_bed", monster = "sandworm" },
 		s = { monster = "scorpion" },
 		b = { monster = "bat_red" },
@@ -59,10 +62,10 @@ return {
 		"3.............&........,,......%......---................6",
 		"#####....+K.............O.............---...!............6",
 		"#####..............!..................---................6",
-		"#WWWW....................................................#",
-		"#WWWW..........O................................,,......##",
-		"#!................s..............&....---...........&...##",
-		"#....$$.....*.............,,..........---....G..........##",
+		"#####....................................................#",
+		"#####..........O................................,,......##",
+		"#####.............s..............&....---...........&...##",
+		"#WWWW$$.....*.............,,..........---....G..........##",
 		"#.c..$$##...........%.................-w-.........s....###",
 		"#....######...................s.....0.---.............####",
 		"#....#########........................---##.........######",
@@ -135,8 +138,8 @@ return {
 		".....j.........d...........................Y.........Y.p..",
 		".......j.....................................s.p...d.v....",
 		"........d.v..s..........s...p............v..d....p..vj..p.",
-		"....C.v.....v............h...................s............",
-		".C.C.....v...Y........j.......................p.s.s....p..",
+		"......v.....v............h...................s............",
+		".........v...Y........j.......................p.s.s....p..",
 		"......p.v.p.Y...............s......................s..Y...",
 		".p..............................p................j..d.....",
 		"...h.....Y...........s.....s..vh..............v......p....",

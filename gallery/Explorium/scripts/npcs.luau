@@ -314,7 +314,7 @@ module.npcs = {
 				if not flags["open:archive_door"] then
 					return {
 						"A door that wants three words? Of course it does. They loved their riddles.",
-						"\"The first tablet, carved when we came down\"... That's the tablet of the oasis, by the sinkhole! You copied it in your notebook, didn't you? Read it again.",
+						"\"The first tablet, carved when we came down\"... That's the first tablet of the oasis, in the colonnade, by my old camp! You copied it in your notebook, didn't you? Read it again.",
 					}
 				end
 				return { "The Archive is open? I'm going. Now. Right now." }
@@ -432,8 +432,8 @@ module.npcs = {
 			if not flags.queenMet then
 				return {
 					"*click*... A two-legs, alive, in the dry halls. I am Tikra, queen of this colony.",
-					"Long ago the sea people made us dig these halls. Their Sun Warden watched us, day and night. It still does.",
-					"When the sea people left, the Great Pump kept our cistern full. Then the sand ate its valves, and the water stopped.",
+					"Long ago our foremothers fled the city of the sea people, when the Clay rose. The sea people found us here and made us dig these halls. Their Sun Warden watched us, day and night. It still does.",
+					"When the sea people sealed their city, the Great Pump still kept our cistern full. Then the sand ate its valves, and the water stopped.",
 					"We drink the last drops of the cistern. Help yourself, friend: water shared is never lost.",
 					"The Great Pump is past the dry canals. Its gate is sealed, its valves are stuck. Make the water flow again, and the colony will give you its greatest treasure.",
 					"The sea people wrote down how their machines work. Ossa, our scribe, can teach you to read their words.",
@@ -685,7 +685,7 @@ module.npcs = {
 			if not flags.nettleMet then
 				flags.nettleMet = true
 				table.insert(steps, "Hm? A two-legs, dripping on my floor. Wipe your feet. I am Nettle.")
-				table.insert(steps, "My grandmothers cared for the Ebb, the sick the city threw down here. Herbs, broths, and a kind word. More than the healers ever gave them.")
+				table.insert(steps, "My foremothers cared for the Ebb, the sick the city threw down here. Herbs, broths, and a kind word. More than the healers ever gave them.")
 				table.insert(steps, "The marsh is sick too. Its heart is the Frog King, fat on the poisons of the House of Healing.")
 				table.insert(steps, "To go down, you must cross the fen. Its water eats you from the inside... unless you hold the stone that grows in the King's belly.")
 				table.insert(steps, "The King lives on an island of the great mire: you'll need a boat. The ferry of the old ones sleeps at the docks, but the air there is rotten. The healers had masks for that. Look in their House.")
@@ -792,7 +792,7 @@ module.npcs = {
 			local steps: { types.DialogStep } = {}
 			if not flags.haskMet then
 				flags.haskMet = true
-				table.insert(steps, "Sit, sit, warm your hands. A traveller from above... We are the Frostborn. Our grandmothers were soldiers of the Watch, the soldiers of the Bronze.")
+				table.insert(steps, "Sit, sit, warm your hands. A traveller from above... We are the Frostborn. Our foremothers were soldiers of the Watch, the soldiers of the Bronze.")
 				table.insert(steps, "The Watch kept this frontier for the city below. When the city sealed itself, the High Tide wanted a Watch that never tires, like its servants of bronze. So the Watch was told to sleep in the ice, and dream its watch forever.")
 				table.insert(steps, "Some of us woke up. A soldier who wakes falls from his water: the city called us Ebb, like its sick in the marshes, and forgot us. We stayed in the cold, and we never quite stopped dreaming. We see things you don't. Not yet.")
 				table.insert(steps, "The way down is past the Old Watch, beyond the Glare. Its gate is at the top of the icefall, and only crampons climb an icefall. The children keep the champion's pair, in the yard. Beat them at their game.")
@@ -872,7 +872,7 @@ module.npcs = {
 				flags.ysoldeVeils = true
 				return {
 					"I dreamed of you. You were walking in the gardens above, where the water is warm. There was a veil there too.",
-					"The sea people raised veils wherever they hid something: in the gardens of the oasis, in the dry halls, in the marshes... Look for the mist.",
+					"Someone dreamed their way up through the floors, long ago, and left veils wherever they hid something: in the gardens of the oasis, in the dry halls, in the marshes... Look for the mist.",
 				}
 			end
 			if not game.player.artefacts.sleepless_eye then
@@ -1062,7 +1062,7 @@ module.npcs = {
 			elseif not player.artefacts.salt_grapnel then
 				table.insert(steps, "Coral! Ha. A name of the Bronze. The yellow eyes will leave you alone now. Not the red ones, not the hounds, not the bats: they never had a water.")
 				table.insert(steps, "The Water Gate opens for you: the harbor of the Salt is beyond, at the bottom of the basin. The Salt kept their hook in their vault, and their vault opens to the light of their lighthouse.")
-				table.insert(steps, "The lighthouse has been dark for a thousand years. Nothing burns down here, little one: no oil, no wood, no fire. Unless you brought a flame from up there.")
+				table.insert(steps, "The lighthouse has been dark for a thousand years. Nothing burns down here, little one: no oil, no wood, no fire. Unless you brought a flame from up there, a fire that never goes out.")
 				if not flags.tunnelCleared then
 					table.insert(steps, "There was a tunnel from here to the harbor, but the rocks fell on it, long ago.")
 				end

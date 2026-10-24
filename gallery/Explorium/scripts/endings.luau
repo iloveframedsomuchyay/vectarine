@@ -153,7 +153,7 @@ module.endings = {
 				to = { 10, 5 },
 				captions = {
 					"Unit-1 brings you the register of the waters. Together, you write back every name it struck.",
-					"Tessa of the Salt. Doran of the Bronze. The Clay of the north gallery. Nerissa of the High Tide.",
+					"Tessa of the Salt. Doran of the Bronze. Coral of the Bronze. Nerissa of the High Tide.",
 				},
 			},
 			{
@@ -186,7 +186,7 @@ function module.epilogue(game: types.Game): { Card }
 		add("The Clay", "The ants of the Diggings stayed in their holes under the city. They still count the figs. One day, someone will tell them that the colony above is alive.")
 	end
 	if flags.wrenCity then
-		add("Wren", "Wren saw the city of the sea people, from the balcony of the Seawall. He said it was more beautiful than he had dreamt. He went back to his fire in the oasis, and never complained about his knee again. Almost never.")
+		add("Wren", "Wren saw the city of the sea people, from the balcony of the Seagate. He said it was more beautiful than he had dreamt. He went back to his fire in the oasis, and never complained about his knee again. Almost never.")
 	else
 		add("Wren", "Wren still sits by his fire in the oasis. He still wonders if the city of the sea people was as beautiful as he dreamt.")
 	end

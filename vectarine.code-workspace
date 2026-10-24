@@ -91,6 +91,7 @@
 			"personal/**/*.png": true,
 			"personal/**/*.ttf": true,
 			"personal/**/*.xml": true,
+			"personal/Explorium/*": true,
 			"personal/**/luau-api/*.luau": true,
 			"gallery/**/luau-api/*.luau": true,
 			"**/.venv/**": true,

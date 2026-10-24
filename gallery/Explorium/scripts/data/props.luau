@@ -255,7 +255,7 @@ module.kinds = {
 	--- The gardens of the High Tide: the gate of the palace (three crystals open it), statues, the fountain (dry until the
 	--- tide comes back)
 	palace_gate = { sprite = "world/palace_gate", solid = true, interact = "look", label = "Look", openKind = "palace_gate_open",
-		text = "The gate of the palace of the High Tide, white and gold. Three crystals are set in the paving before it, dark." },
+		text = "The gate of the palace of the High Tide, white and gold. It sits in a dry basin of stone; a great pipe runs down the cliff from it." },
 	palace_gate_open = { sprite = "world/palace_gate_open", solid = false, flat = true },
 	high_tide_statue = { sprite = "world/statue_base", tall = "world/statue_top", solid = true },
 	fountain = { sprite = "world/fountain_dry", solid = true, openKind = "fountain_running" },

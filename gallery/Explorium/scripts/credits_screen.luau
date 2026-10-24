@@ -9,11 +9,11 @@ const module = loader.init() or {}
 
 --- Each credit is a role and who did it.
 const CREDITS = {
-	{ role = "Code, Gameplay, Story", who = "vanyle (Antoine Delegue), MIT Licensed" },
 	{ role = "Engine", who = "Vectarine" },
-	{ role = "Palette", who = "Waldgeist palette by Acid Burritos" },
+	{ role = "Sprites", who = "Drawn for this game (tools/art), Waldgeist palette by Acid Burritos" },
 	{ role = "Key and menu icons", who = "Kenney (kenney.nl)" },
 	{ role = "Font", who = "m6x11 by Daniel Linssen, with Greek letters added" },
+	{ role = "Game", who = "You! This is a template, make it yours." },
 }
 
 local lines: { ui.Widget<any> } = {}

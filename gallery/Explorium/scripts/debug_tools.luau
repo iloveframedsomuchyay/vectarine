@@ -46,6 +46,8 @@ function module.install(screen: { game: types.Game? })
 	local helpers = {
 		--- Draw the whole level at once, without darkness, to review it
 		overview = false :: any,
+		--- A function (game) -> input played instead of the keyboard every frame (recording tools), or nil
+		autopilot = nil :: any,
 	}
 
 	--- Run one update of 1/60 s. `move` is a direction name ("up", "down"...) or a vector.

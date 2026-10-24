@@ -83,6 +83,8 @@ local function cameraTarget(game: types.Game, viewport: Viewport): vec.Vec2
 	return vec.V2(axis(focus.x, visible.x, lvl.width), axis(focus.y, visible.y, lvl.height))
 end
 
+module.cameraTarget = cameraTarget
+
 function module.resetCamera(game: types.Game, viewport: Viewport)
 	module.camera = cameraTarget(game, viewport)
 end
@@ -722,6 +724,8 @@ export type DrawOptions = {
 	darkness: boolean?,
 	--- Draw the silhouettes framing the screen and the key prompts (with the darkness; the review tool can skip them)
 	foreground: boolean?,
+	--- With `foreground`: draw the key prompts over the props (default: yes; the trailer films without them)
+	prompts: boolean?,
 }
 
 --- Draw the world in the viewport. Texts (floating damage numbers) are drawn after, in screen space.
@@ -795,7 +799,7 @@ function module.drawWorld(game: types.Game, viewport: Viewport, options: DrawOpt
 		drawSnow(game, viewport, time)
 		drawUpdraft(game, viewport, time)
 	end
-	if options.darkness ~= false and options.foreground ~= false then
+	if options.darkness ~= false and options.foreground ~= false and options.prompts ~= false then
 		drawKeyPrompts(game, viewport, time)
 	end
 

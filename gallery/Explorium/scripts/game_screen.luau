@@ -3,7 +3,7 @@ The game screen: reads the keyboard, runs the game logic and draws everything.
 
 Controls:
 - arrows (or WASD): move. [Space]: attack with the equipped weapon (hold to keep attacking)
-- [E]: interact (talk, open, rest, pick, read...). [Q] (A on AZERTY keyboards): notebook. [Escape]: pause
+- [E]: interact (talk, open, rest, pick, read...). [Q] (A on AZERTY keyboards): notebook. [P] or [Escape]: pause
 
 It also handles the flow of the game: transitions between levels, title cards, announcements, fainting,
 dialogs and menus. The rules themselves are in game_logic.luau: this screen turns the keyboard into an `Input`
@@ -331,6 +331,16 @@ end
 -- MARK: Input
 
 local function readInput(): game_logic.Input
+	-- A recording tool can play instead of the keyboard (`explorium.debug.autopilot(game)` returns the input of the
+	-- frame, nil for the keyboard): a bot fights a boss while the trailer is filmed
+	local debugHelpers = (module :: any).debug
+	local autopilot: ((types.Game) -> game_logic.Input?)? = if debugHelpers then debugHelpers.autopilot else nil
+	if autopilot and module.game then
+		local input = autopilot(module.game :: types.Game)
+		if input then
+			return input
+		end
+	end
 	local x = (if io.isKeyDown("Right") or io.isKeyDown("D") then 1 else 0) - (if io.isKeyDown("Left") or io.isKeyDown("A") then 1 else 0)
 	local y = (if io.isKeyDown("Down") or io.isKeyDown("S") then 1 else 0) - (if io.isKeyDown("Up") or io.isKeyDown("W") then 1 else 0)
 	return {
@@ -397,7 +407,7 @@ local function handleInput(game: types.Game, dt: number, extra: any)
 	if io.isKeyJustPressed(prompts.NOTEBOOK_KEY) then
 		menus.open({ kind = "notebook" })
 		return
-	elseif io.isKeyJustPressed("Escape") then
+	elseif io.isKeyJustPressed("Escape") or io.isKeyJustPressed(prompts.PAUSE_KEY) then
 		menus.open({ kind = "pause" })
 		return
 	end
@@ -455,20 +465,44 @@ local function drawPrompts(game: types.Game, layout: Layout, extra: any)
 end
 
 --- Draw the whole level in the world view, without darkness: a tool to review levels (`explorium.debug.overview`).
+--- The camera of the overview when it follows the player (`follow`)
+local overviewCamera: vec.Vec2? = nil
+
 --- With `{ x, y, px }` instead of `true`, the part of the level from that cell, with tiles of `px` pixels. Options:
 --- `full` (the whole window, not only the world view), `dark` (the darkness and the lights, as in the game),
---- `foreground` (with `dark`: the silhouettes framing the screen and the key prompts too).
-local function drawOverview(game: types.Game, layout: Layout, from: any)
+--- `foreground` (with `dark`: the silhouettes framing the screen and the key prompts too), `follow` (a number: the
+--- camera glides after the player at that speed, x and y are ignored; `offset` shifts the framing, in tiles),
+--- `dialog` (the dialog box over the world). The recording tools (.claude/tools/trailer) use it.
+local function drawOverview(game: types.Game, layout: Layout, from: any, dt: number)
 	if type(from) == "table" then
 		local window = io.getWindowSize()
-		local saved = world_view.camera
-		world_view.camera = vec.V2(from.x, from.y)
-		world_view.drawWorld(game, {
+		local viewport = {
 			pos = if from.full then vec.V2(-1, -1) else layout.world.pos,
 			size = if from.full then vec.V2(2, 2) else layout.world.size,
 			tileSize = vec.V2(from.px * 2 / window.x, from.px * 2 / window.y),
-		}, { time = ui_components.time, darkness = from.dark == true, foreground = from.foreground == true })
+		}
+		local saved = world_view.camera
+		local speed: number? = from.follow
+		if speed then
+			local target = world_view.cameraTarget(game, viewport) + (from.offset or vec.V2(0, 0))
+			local camera = overviewCamera
+			overviewCamera = if camera and not from.snap then camera:lerp(target, math.min(1, dt * speed)) else target
+			world_view.camera = overviewCamera :: vec.Vec2
+		else
+			overviewCamera = nil
+			world_view.camera = vec.V2(from.x, from.y)
+		end
+		world_view.drawWorld(game, viewport, {
+			time = ui_components.time,
+			darkness = from.dark == true,
+			foreground = from.foreground == true,
+			prompts = from.prompts == true,
+		})
 		world_view.camera = saved
+		if from.dialog and dialog.isOpen() then
+			local size = dialog.BOX_SIZE
+			drawWidgetAt(dialog.widget, vec.V2(-size.x / 2, -1 + 0.06), {})
+		end
 		return
 	end
 	local window = io.getWindowSize()
@@ -493,7 +527,7 @@ local function drawScreen(game: types.Game, layout: Layout, extra: any, dt: numb
 	graphics.clear(theme.colors.background)
 	local debugHelpers = (module :: any).debug
 	if debugHelpers and debugHelpers.overview then
-		drawOverview(game, layout, debugHelpers.overview)
+		drawOverview(game, layout, debugHelpers.overview, dt)
 		if type(debugHelpers.overview) == "table" then
 			-- Only the level: no title, messages or HUD over it
 			return

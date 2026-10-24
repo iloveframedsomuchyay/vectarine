@@ -280,6 +280,7 @@ local actions: { [string]: (game: types.Game, prop: types.Prop) -> () } = {
 			game.flags[`teleporter:{prop.key}`] = { level = game.level.id, name = prop.data.name or game.level.name, x = prop.cell.x, y = prop.cell.y }
 			effects.burst(prop.cell + vec.V2(0.5, 0.5), "spark", 24)
 			effects.flash(theme.colors.sanity, 0.4)
+			audio.cue("teleporter_wake")
 			message(game, "The energy core clicks in place. The teleporter wakes up!")
 		else
 			message(game, "A machine of the sea people, cold and silent. It has a slot for an energy core.")
@@ -458,7 +459,7 @@ local actions: { [string]: (game: types.Game, prop: types.Prop) -> () } = {
 			return
 		end
 		if not game.player.artefacts.watch_ember then
-			message(game, "The great lantern of the Salt: a wick as thick as an arm, a mirror of polished bronze behind it, oil still in its well. Nothing to light it with. Nothing burns down here.")
+			message(game, "The great lantern of the Salt: a wick as thick as an arm, a mirror of polished bronze behind it, its well long dry. The cold glow of a lantern won't catch it: it needs a fire that never goes out.")
 			return
 		end
 		switches.open(game, prop.data.id)

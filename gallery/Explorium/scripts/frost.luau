@@ -37,6 +37,8 @@ const FROZEN_SPEED = 0.55
 const THIN_ICE_TIME = 0.8
 --- How fast the player gets to the speed they want on ice (per second): low = slippery
 const ICE_GRIP = 1.7
+--- How fast a boat answers the oars: it takes a moment to get going, and glides a little when the player stops
+const SAIL_GRIP = 4.5
 
 --- State of the frontier that is not saved: the thin ice under the player, where they last stood on firm ground
 type State = {
@@ -104,9 +106,15 @@ end
 function module.steer(game: types.Game, wanted: vec.Vec2, dt: number): vec.Vec2
 	local player = game.player
 	local cell = level.cellOf(player.pos)
-	local ground = level.groundAt(game.level :: level.Level, cell.x, cell.y)
+	local lvl = game.level :: level.Level
+	local ground = level.groundAt(lvl, cell.x, cell.y)
+	local prop = level.propAt(lvl, cell.x, cell.y)
+	local onPad = prop ~= nil and props.kinds[prop.kind].floor == true
 	if ground and ground.slippery then
 		player.velocity = player.velocity:lerp(wanted, 1 - math.exp(-dt * ICE_GRIP))
+	elseif ground and ground.sailable and not onPad then
+		-- Sailing (the ferry): a little inertia, the boat drifts on
+		player.velocity = player.velocity:lerp(wanted, 1 - math.exp(-dt * SAIL_GRIP))
 	else
 		player.velocity = wanted
 	end

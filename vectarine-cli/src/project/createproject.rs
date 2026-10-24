@@ -17,7 +17,7 @@ use crate::project::new_project_strings::{
 pub enum StartingProjectTemplate {
     FromScratch,
     Platformer,
-    TopDownRPG,
+    Explorium,
     Sokoban,
     AlienShooter,
 }
@@ -27,7 +27,7 @@ impl StartingProjectTemplate {
         vec![
             StartingProjectTemplate::FromScratch,
             StartingProjectTemplate::Platformer,
-            StartingProjectTemplate::TopDownRPG,
+            StartingProjectTemplate::Explorium,
             StartingProjectTemplate::Sokoban,
             StartingProjectTemplate::AlienShooter,
         ]
@@ -36,7 +36,7 @@ impl StartingProjectTemplate {
         match self {
             StartingProjectTemplate::FromScratch => None,
             StartingProjectTemplate::Platformer => Some("Platformer"),
-            StartingProjectTemplate::TopDownRPG => Some("TopDownRPG"),
+            StartingProjectTemplate::Explorium => Some("Explorium"),
             StartingProjectTemplate::Sokoban => Some("Sokoban"),
             StartingProjectTemplate::AlienShooter => Some("AlienShooter"),
         }
@@ -48,8 +48,8 @@ impl StartingProjectTemplate {
             StartingProjectTemplate::Platformer => {
                 "A platformer side-scroller with a player character, physics and a world loaded on demand."
             }
-            StartingProjectTemplate::TopDownRPG => {
-                "A top-down RPG with health, enemies and a tilemap-based world loaded on demand."
+            StartingProjectTemplate::Explorium => {
+                "A complete top-down RPG: combat, dialogs, puzzles and a tilemap-based world loaded on demand."
             }
             StartingProjectTemplate::Sokoban => {
                 "A top-down Sokoban-style puzzle with undo/redo, pushable boxes and special items."
@@ -74,7 +74,7 @@ impl Display for StartingProjectTemplate {
         match self {
             StartingProjectTemplate::FromScratch => write!(f, "From Scratch"),
             StartingProjectTemplate::Platformer => write!(f, "Platformer"),
-            StartingProjectTemplate::TopDownRPG => write!(f, "Top-down RPG"),
+            StartingProjectTemplate::Explorium => write!(f, "Explorium"),
             StartingProjectTemplate::Sokoban => write!(f, "Sokoban"),
             StartingProjectTemplate::AlienShooter => write!(f, "Alien Shooter"),
         }
