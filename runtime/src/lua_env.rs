@@ -195,6 +195,18 @@ impl LuaEnvironment {
             | vectarine_plugin_sdk::mlua::StdLib::DEBUG;
         let gl = batch.borrow().drawing_target.gl().clone();
 
+        // Same flags as mlua's init_jit_flags, or the bytecode of exports crashes the VM
+        // This is brittle and can break web exports if Luau changes their JIT compile flags in a new release!
+        #[cfg(target_os = "emscripten")]
+        for flag in [
+            "LuauCallFeedback",
+            "LuauEmitCallFeedback",
+            "LuauCIProto",
+            "LuauPromoteProto",
+            "LuauVirtualBcBuilder",
+        ] {
+            let _ = vectarine_plugin_sdk::mlua::Lua::set_fflag(flag, true);
+        }
         let lua = vectarine_plugin_sdk::mlua::Lua::new_with(lua_libs, lua_options)
             .expect("Failed to create Lua");
         lua.set_compiler(
