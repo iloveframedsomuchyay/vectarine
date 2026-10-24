@@ -72,6 +72,7 @@ impl DrawingTarget {
             self.gl
                 .as_ref()
                 .blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+            #[cfg(not(target_os = "emscripten"))]
             self.gl.as_ref().enable(glow::MULTISAMPLE);
         }
     }

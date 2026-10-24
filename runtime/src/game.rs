@@ -301,6 +301,7 @@ impl Game {
             gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
             gl.disable(glow::DEPTH_TEST);
             // gl.enable(glow::SAMPLE_ALPHA_TO_COVERAGE); // Not needed for 2D.
+            #[cfg(not(target_os = "emscripten"))]
             gl.enable(glow::MULTISAMPLE);
 
             // If we don't clear and the game crashes, it looks weird.

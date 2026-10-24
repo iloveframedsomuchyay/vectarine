@@ -45,6 +45,7 @@ pub fn lib_main() {
                 &export_args.project,
                 export_args.output.as_deref(),
                 export_args.target,
+                export_args.obfuscate,
             ) {
                 Ok(output_path) => {
                     println!("Exported project to {:?}", output_path);

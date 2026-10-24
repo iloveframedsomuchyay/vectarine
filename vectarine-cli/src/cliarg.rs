@@ -42,6 +42,8 @@ pub struct ExportArgs {
     pub project: PathBuf,
     #[arg(long, short, value_enum)]
     pub target: ExportTarget,
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+    pub obfuscate: bool,
 }
 
 #[derive(Parser, Debug)]

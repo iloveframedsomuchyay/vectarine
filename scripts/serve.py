@@ -54,6 +54,8 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    if len(sys.argv) > 2:
+        DIRECTORY = Path(sys.argv[2]).resolve()
     server_address = ("0.0.0.0", port)
     print(f"http://localhost:{port}")
     httpd = ThreadingHTTPServer(server_address, CORSRequestHandler)

@@ -14,6 +14,7 @@ pub fn export(
     project_path: &Path,
     output_path: Option<&Path>,
     export_target: ExportTarget,
+    obfuscate: bool,
 ) -> anyhow::Result<PathBuf> {
     let Ok(project_manifest_content) = fs::read_to_string(project_path) else {
         return Err(anyhow::anyhow!(
@@ -36,7 +37,7 @@ pub fn export(
         ExportTarget::Web => ExportPlatform::Web,
     };
 
-    let project_path = match export_project(project_path, &project_info, true, platform) {
+    let project_path = match export_project(project_path, &project_info, obfuscate, platform) {
         Ok(path) => path,
         Err(e) => Err(anyhow::anyhow!("{:?}", e))?,
     };

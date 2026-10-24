@@ -1,13 +1,13 @@
 # Targeting the Web
 
 > This documentation is for engine developers, not game builders!
-> 
-> If you are a game builder, use `vecta web` to start a webserver and see how your game looks in a browser.
 
 Note for windows users:
 - Always use the same OS with emsdk (WSL or Window, but not both)
 - Make sure the python in your path is not the one from mingw, it messes with the activation scripts.
 - You can check the environment works by running `where.exe python`, `where.exe node` and `where.exe emcc`
+
+On non-windows platform, mise takes care of the emscripten installation for you!
 
 ```bash
 # Needed to setup emsdk
@@ -27,6 +27,18 @@ emcc -v
 
 cargo build -p runtime --target=wasm32-unknown-emscripten
 ```
+
+## Quickly testing the web version (export + web runtime)
+
+```bash
+mise test-export path/to/game.vecta path/to/output web [is_obfuscated] [--debug-web] [--serve]
+
+# Example:
+mise test-export gallery/game.vecta personal/tmp-export web --debug-web --serve
+```
+
+This exports with the latest GitHub release (cached in `target/latest-release`), where the editor and the CLI are replaced by debug builds of the current code.
+`--debug-web` also replaces the web runtime by a debug build, and `--serve` serves the export on http://localhost:8000.
 
 ## Using threads in the web build
 

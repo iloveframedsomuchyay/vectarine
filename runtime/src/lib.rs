@@ -36,7 +36,7 @@ use std::{cell::RefCell, mem::ManuallyDrop, rc::Rc, sync::Arc};
 
 use sdl2::{
     VideoSubsystem,
-    video::{SwapInterval, Window},
+    video::Window,
 };
 
 use crate::{
@@ -90,7 +90,8 @@ where
     let gl = make_gl_from_video_system(&video_subsystem);
     let gl: Arc<glow::Context> = Arc::new(gl);
 
-    let _ = video_subsystem.gl_set_swap_interval(SwapInterval::VSync);
+    #[cfg(not(target_os = "emscripten"))]
+    let _ = video_subsystem.gl_set_swap_interval(sdl2::video::SwapInterval::VSync);
 
     let window = Rc::new(RefCell::new(SdlDrawingSurface::new(
         window,
