@@ -12,7 +12,7 @@
 
 *[Vectarine](https://vectarineengine.com) is a game engine with a focus on ultra fast prototyping, ease of use and having fun.*
 
-<video alt="A presentation of vectarine features" width="448" height="252" controls src="https://github.com/user-attachments/assets/2d90fe6b-1d22-46da-a9a8-2ef5cfe31a27"></video>
+https://github.com/user-attachments/assets/6f39a5b5-3021-4143-bc41-bbc8c496f1af
 
 ## Key features
 
@@ -63,9 +63,9 @@ Additionally, you'll need:
 
 <br>
 
-See **[The guided tour](https://vectarineengine.com/guides/overview.html)** for detailed information on how to make games with vectarine.
+See **[The guided tour](https://vectarineengine.com/guides/overview/)** for detailed information on how to make games with vectarine.
 
-If this is your first time making games, read the guide to [create your first game](https://vectarineengine.com/guides/getting-started.html)
+If this is your first time making games, read the guide to [create your first game](https://vectarineengine.com/guides/getting-started/)
 
 If you prefer watching rather than reading, there is a **[video presentation](https://www.youtube.com/watch?v=KwckT9mbj10)** to get started.
 
