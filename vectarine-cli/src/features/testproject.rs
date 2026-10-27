@@ -1,3 +1,7 @@
+use runtime::image::{
+    Delay, Frame,
+    codecs::gif::{GifEncoder, Repeat},
+};
 use runtime::{
     anyhow::{self, Result, anyhow},
     image::{DynamicImage, RgbaImage},
@@ -5,13 +9,16 @@ use runtime::{
     toml,
 };
 use std::{
+    fs::File,
+    io::{BufWriter, Write},
     path::{Path, PathBuf},
+    process::{Child, Command, Stdio},
     time::Duration,
 };
 
 use crate::{
     features::testproject::testfileparsing::{TestFile, TestStep},
-    headless::GameHeadlessRunner,
+    headless::{FrameResult, GameHeadlessRunner},
 };
 
 mod testfileparsing {
@@ -57,6 +64,8 @@ mod testfileparsing {
         ActionMouseRelease(i32, i32),
         #[serde(rename = "run_lua_code")]
         RunLuaCode(String),
+        #[serde(rename = "record_gif")]
+        RecordGif { frames: u32, output: String },
     }
 }
 
@@ -115,6 +124,145 @@ fn push_key_events(
     }
 }
 
+enum Encoder {
+    Gif(GifEncoder<BufWriter<File>>),
+    Mp4(Child),
+}
+
+struct Recording {
+    output: PathBuf,
+    frame_count: usize,
+    frames_recorded: usize,
+    encoder: Option<Encoder>,
+}
+
+impl Recording {
+    fn new(output: PathBuf, frame_count: usize) -> Result<Self> {
+        if !matches!(
+            output.extension().and_then(|e| e.to_str()),
+            Some("gif" | "mp4")
+        ) {
+            return Err(anyhow!(
+                "Unsupported recording format for {}: use .gif or .mp4",
+                output.display()
+            ));
+        }
+        Ok(Self {
+            output,
+            frame_count,
+            frames_recorded: 0,
+            encoder: None,
+        })
+    }
+
+    fn start_encoder(&self, width: u32, height: u32) -> Result<Encoder> {
+        if self.output.extension().and_then(|e| e.to_str()) == Some("gif") {
+            let file = BufWriter::new(File::create(&self.output)?);
+            let mut gif = GifEncoder::new_with_speed(file, 10);
+            gif.set_repeat(Repeat::Infinite)?;
+            return Ok(Encoder::Gif(gif));
+        }
+        let ffmpeg = Command::new("ffmpeg")
+            .args(["-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s"])
+            .arg(format!("{width}x{height}"))
+            .args(["-r", "60", "-i", "-", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"])
+            .args(["-c:v", "libx264", "-crf", "12", "-pix_fmt", "yuv420p"])
+            .args(["-movflags", "+faststart"])
+            .arg(&self.output)
+            .stdin(Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                anyhow!("Recording an mp4 requires ffmpeg in your PATH ({e}). Record a .gif instead, or install ffmpeg.")
+            })?;
+        Ok(Encoder::Mp4(ffmpeg))
+    }
+
+    fn add_frame(&mut self, frame: &RgbaImage) -> Result<()> {
+        if self.encoder.is_none() {
+            self.encoder = Some(self.start_encoder(frame.width(), frame.height())?);
+        }
+        match &mut self.encoder {
+            // GIF delays are in centiseconds and browsers slow down delays under 2, so we keep 30 fps.
+            Some(Encoder::Gif(gif)) if self.frames_recorded.is_multiple_of(2) => {
+                let centiseconds_at = |frame_index: usize| (frame_index as u32 * 100 + 30) / 60;
+                let delay = centiseconds_at(self.frames_recorded + 2)
+                    - centiseconds_at(self.frames_recorded);
+                gif.encode_frame(Frame::from_parts(
+                    frame.clone(),
+                    0,
+                    0,
+                    Delay::from_numer_denom_ms(delay * 10, 1),
+                ))?;
+            }
+            Some(Encoder::Mp4(ffmpeg)) => {
+                ffmpeg
+                    .stdin
+                    .as_mut()
+                    .ok_or_else(|| anyhow!("Failed to send the frames to ffmpeg"))?
+                    .write_all(frame.as_raw())?;
+            }
+            _ => {}
+        }
+        self.frames_recorded += 1;
+        Ok(())
+    }
+
+    fn finish(self) -> Result<()> {
+        match self.encoder {
+            None => {
+                println!(
+                    "Warning: no frames were recorded for {}",
+                    self.output.display()
+                );
+                return Ok(());
+            }
+            Some(Encoder::Gif(gif)) => drop(gif),
+            Some(Encoder::Mp4(mut ffmpeg)) => {
+                drop(ffmpeg.stdin.take());
+                if !ffmpeg.wait()?.success() {
+                    return Err(anyhow!("ffmpeg failed to write {}", self.output.display()));
+                }
+            }
+        }
+        println!(
+            "Recorded {} frames to {}",
+            self.frames_recorded,
+            self.output.display()
+        );
+        Ok(())
+    }
+}
+
+fn capture_screenshot(game_runner: &GameHeadlessRunner) -> Result<RgbaImage> {
+    let (data, width, height) = game_runner.screenshot()?;
+    let image = RgbaImage::from_raw(width, height, data)
+        .ok_or_else(|| anyhow!("Failed to create image buffer from screenshot data"))?;
+    Ok(DynamicImage::ImageRgba8(image).flipv().to_rgba8())
+}
+
+fn step_frame(
+    game_runner: &mut GameHeadlessRunner,
+    event_buffer: &mut Vec<Event>,
+    recordings: &mut Vec<Recording>,
+) -> Result<FrameResult> {
+    let result = game_runner.step(Duration::from_secs_f32(1.0 / 60.0), event_buffer);
+    event_buffer.clear();
+    if !recordings.is_empty() {
+        let frame = capture_screenshot(game_runner)?;
+        for recording in recordings.iter_mut() {
+            recording.add_frame(&frame)?;
+        }
+    }
+    let (finished, remaining): (Vec<Recording>, Vec<Recording>) = std::mem::take(recordings)
+        .into_iter()
+        .partition(|recording| recording.frames_recorded >= recording.frame_count);
+    *recordings = remaining;
+    for recording in finished {
+        recording.finish()?;
+    }
+    Ok(result)
+}
+
 pub fn test_project(test_file: &Path, overwrite: bool, acceptable_pixel_diff: u32) -> Result<()> {
     if test_file.is_dir() {
         // Recursively find all *vecta-test.toml files in the directory and run them.
@@ -156,34 +304,24 @@ pub fn run_test_file(test_file: &Path, overwrite: bool, acceptable_pixel_diff: u
     let mut game_runner = game_runner?;
     let mut event_buffer = vec![];
     let mut logs = vec![];
+    let mut recordings = vec![];
 
     for step in test_manifest.step {
         match step {
             TestStep::Idle(count) => {
                 for _ in 0..count {
-                    let result =
-                        game_runner.step(Duration::from_secs_f32(1.0 / 60.0), &event_buffer);
+                    let result = step_frame(&mut game_runner, &mut event_buffer, &mut recordings)?;
                     logs.extend(result.logs);
-                    event_buffer.clear();
                 }
             }
             TestStep::CompareScreenshot(path) => {
                 let screenshot_output_path = make_path_absolute(Path::new(&path), test_file);
-                let (screenshot_data, width, height) = game_runner.screenshot()?;
+                let actual_bytes = capture_screenshot(&game_runner)?;
+                let (width, height) = actual_bytes.dimensions();
 
                 if !screenshot_output_path.exists() || overwrite {
-                    let flipped_data = screenshot_data
-                        .chunks_exact((width * 4) as usize)
-                        .rev()
-                        .flat_map(|row| row.to_vec())
-                        .collect::<Vec<u8>>();
-
-                    runtime::image::save_buffer_with_format(
+                    actual_bytes.save_with_format(
                         screenshot_output_path,
-                        &flipped_data,
-                        width,
-                        height,
-                        runtime::image::ColorType::Rgba8,
                         runtime::image::ImageFormat::Png,
                     )?;
                 } else {
@@ -203,13 +341,6 @@ pub fn run_test_file(test_file: &Path, overwrite: bool, acceptable_pixel_diff: u
 
                     // We blur slightly due to differences in multisampling between platforms. This is a tradeoff between accuracy and robustness.
                     let expected_bytes = expected_image.to_rgba8();
-                    let actual_bytes = DynamicImage::ImageRgba8(
-                        RgbaImage::from_raw(width, height, screenshot_data.clone()).ok_or_else(
-                            || anyhow!("Failed to create image buffer from screenshot data"),
-                        )?,
-                    )
-                    .flipv()
-                    .to_rgba8();
 
                     let total_pixels = width * height;
                     let mut differing_pixels = 0;
@@ -330,9 +461,8 @@ pub fn run_test_file(test_file: &Path, overwrite: bool, acceptable_pixel_diff: u
             }
             TestStep::ActionKeyTap(key_names) => {
                 push_key_events(&mut event_buffer, &key_names, true, game_runner.window_id());
-                let result = game_runner.step(Duration::from_secs_f32(1.0 / 60.0), &event_buffer);
+                let result = step_frame(&mut game_runner, &mut event_buffer, &mut recordings)?;
                 logs.extend(result.logs);
-                event_buffer.clear();
                 // The keys are released on the next frame, like a release_keys step.
                 push_key_events(
                     &mut event_buffer,
@@ -340,6 +470,10 @@ pub fn run_test_file(test_file: &Path, overwrite: bool, acceptable_pixel_diff: u
                     false,
                     game_runner.window_id(),
                 );
+            }
+            TestStep::RecordGif { frames, output } => {
+                let output = make_path_absolute(Path::new(&output), test_file);
+                recordings.push(Recording::new(output, frames as usize)?);
             }
             TestStep::ActionMousePress(x, y) => {
                 event_buffer.push(Event::MouseButtonDown {
@@ -364,6 +498,16 @@ pub fn run_test_file(test_file: &Path, overwrite: bool, acceptable_pixel_diff: u
                 });
             }
         }
+    }
+
+    for recording in recordings {
+        println!(
+            "Warning: the test ended after {} of the {} frames to record in {}",
+            recording.frames_recorded,
+            recording.frame_count,
+            recording.output.display()
+        );
+        recording.finish()?;
     }
 
     Ok(())

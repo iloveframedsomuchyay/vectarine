@@ -205,6 +205,25 @@ compare_logs_to = "./my-test-logs.txt"`;
 
 <Code lang="toml" code={testExample3} />
 
+## Recording gifs and videos
+
+`record_gif` records the next frames of your game into a `.gif` or `.mp4` file, for example to show a feature on your store page.
+The recording happens while the next steps run, and the file is written once the game has advanced by `frames` frames.
+
+export const testExample5 = `# Record the next 120 frames (2 seconds) while the steps below play
+[[step]]
+record_gif = { frames = 120, output = "./jump.gif" }
+
+[[step]]
+tap_keys = ["space"]
+
+[[step]]
+wait_for_frames = 119`;
+
+<Code lang="toml" code={testExample5} />
+
+Gifs are saved at 30 frames per second. Recording an `.mp4` requires [ffmpeg](https://ffmpeg.org/) to be installed.
+
 Now that you know how to write tests, you can start writing them for your game!
 
 It is a good idea to run the tests automatically when you push code using a *continuous integration* (CI) system. This is a more

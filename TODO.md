@@ -32,7 +32,7 @@
   - [ ] Add a way to load scripts in a separate environment with a subset of available functions
   - [ ] Add a way to pass data to and from the sandbox
 - [ ] The 3D API!!
-  - [ ] See how Three.js does things.
+  - [ ] Use https://kiss3d.dimforge.com/
   - [ ] Camera
   - [ ] Scene
   - [ ] Geometries + Materials = Mesh
