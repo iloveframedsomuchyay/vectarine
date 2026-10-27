@@ -257,8 +257,8 @@ pub fn setup_coords_api(
                 if let Ok(as_screen_vec) = as_screen_vec {
                     return (ScreenPosition(this.0 - as_screen_vec.0)).into_lua(lua);
                 }
-                let as_vec = other.borrow::<Vec2>()?;
-                (ScreenPosition(this.0 - *as_vec)).into_lua(lua)
+                let as_vec = Vec2::from_userdata(&other)?;
+                (ScreenPosition(this.0 - as_vec)).into_lua(lua)
             },
         );
 
@@ -533,8 +533,7 @@ pub fn get_pos_as_vec2(
         Err(err) => err,
     };
     if matches!(err, vectarine_plugin_sdk::mlua::Error::UserDataTypeMismatch) {
-        let vec = userdata.borrow::<Vec2>()?;
-        Ok(*vec)
+        Vec2::from_userdata(&userdata)
     } else {
         Err(err)
     }
@@ -549,8 +548,7 @@ pub fn get_size_as_vec2(
         Err(err) => err,
     };
     if matches!(err, vectarine_plugin_sdk::mlua::Error::UserDataTypeMismatch) {
-        let vec = userdata.borrow::<Vec2>()?;
-        Ok(*vec)
+        Vec2::from_userdata(&userdata)
     } else {
         Err(err)
     }

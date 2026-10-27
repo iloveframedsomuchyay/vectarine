@@ -11,7 +11,7 @@ use vectarine_plugin_sdk::rapier2d::prelude::{
     RigidBodyHandle, RigidBodySet,
 };
 use vectarine_plugin_sdk::{
-    mlua::{AnyUserData, FromLua, IntoLua, UserDataFields, UserDataMethods},
+    mlua::{AnyUserData, FromLua, IntoLua, UserDataFields, UserDataMethods, UserDataRef},
     rapier2d,
 };
 
@@ -25,7 +25,7 @@ use crate::{
             TilemapResourceId,
             tilemap::{GeneratedTilemap, Tilemap},
         },
-        lua_vec2::Vec2,
+        lua_vec2::{SharedVec2, Vec2},
     },
 };
 
@@ -36,7 +36,7 @@ pub struct PhysicsWorld2 {
     physics_pipeline: PhysicsPipeline,
     rigid_body_set: RigidBodySet,
     collider_set: ColliderSet,
-    gravity: Vec2,
+    gravity: SharedVec2,
     integration_parameters: IntegrationParameters,
     island_manager: IslandManager,
     broad_phase: DefaultBroadPhase,
@@ -65,7 +65,7 @@ pub fn ensure_camera_is_valid(
 impl PhysicsWorld2 {
     fn new(
         camera: Option<vectarine_plugin_sdk::mlua::Value>,
-        gravity: Vec2,
+        gravity: SharedVec2,
     ) -> vectarine_plugin_sdk::mlua::Result<Self> {
         let camera = if let Some(camera) = camera {
             ensure_camera_is_valid(&camera)?;
@@ -90,6 +90,57 @@ impl PhysicsWorld2 {
             extras: HashMap::new(),
         })
     }
+
+    fn object(&self, handle: RigidBodyHandle) -> Option<AnyUserData> {
+        self.extras.get(&handle).map(|extra| extra.object.clone())
+    }
+
+    /// Lua can edit positions and speeds in place, without going through a setter.
+    fn push_shared_vectors(&mut self) -> vectarine_plugin_sdk::mlua::Result<()> {
+        for extra in self.extras.values() {
+            let object = extra.object.borrow::<Object2>()?;
+            let position = to_rapier(object.position.get()?);
+            let speed = to_rapier(object.speed.get()?);
+            let Some(rigid_body) = self.rigid_body_set.get(object.rigid_body_handle) else {
+                continue;
+            };
+            let moved = rigid_body.translation() != position;
+            let sped_up = rigid_body.linvel() != speed;
+            if !moved && !sped_up {
+                continue;
+            }
+            let Some(rigid_body) = self.rigid_body_set.get_mut(object.rigid_body_handle) else {
+                continue;
+            };
+            if moved {
+                rigid_body.set_translation(position, true);
+            }
+            if sped_up {
+                rigid_body.set_linvel(speed, true);
+            }
+        }
+        Ok(())
+    }
+
+    fn pull_shared_vectors(&self) -> vectarine_plugin_sdk::mlua::Result<()> {
+        for extra in self.extras.values() {
+            let object = extra.object.borrow::<Object2>()?;
+            let Some(rigid_body) = self.rigid_body_set.get(object.rigid_body_handle) else {
+                continue;
+            };
+            object.position.set(from_rapier(rigid_body.translation()))?;
+            object.speed.set(from_rapier(rigid_body.linvel()))?;
+        }
+        Ok(())
+    }
+}
+
+fn to_rapier(vec: Vec2) -> rapier2d::math::Vec2 {
+    rapier2d::math::Vec2::new(vec.x(), vec.y())
+}
+
+fn from_rapier(vec: rapier2d::math::Vec2) -> Vec2 {
+    Vec2::new(vec.x, vec.y)
 }
 
 #[derive(Clone)]
@@ -113,9 +164,12 @@ auto_impl_lua_take!(Joint2, Joint2);
 
 // MARK: Object2
 
+/// Each body has a single Object2, so that its position and speed vectors are shared by everyone holding it.
 pub struct Object2 {
     pub rigid_body_handle: RigidBodyHandle,
     pub world: Weak<RefCell<PhysicsWorld2>>,
+    position: SharedVec2,
+    speed: SharedVec2,
 }
 
 impl Object2 {
@@ -123,45 +177,32 @@ impl Object2 {
         self.world.upgrade().is_none()
     }
     pub fn position(&self) -> Option<Vec2> {
-        let world = self.world.upgrade()?;
-        let world = world.borrow();
-        let world = &*world;
-        let rigid_body = world.rigid_body_set.get(self.rigid_body_handle)?;
-        let position = rigid_body.position();
-        Some(Vec2::new(position.translation.x, position.translation.y))
+        self.position.get().ok()
     }
     pub fn velocity(&self) -> Option<Vec2> {
-        let world = self.world.upgrade()?;
-        let world = world.borrow();
-        let world = &*world;
-        let rigid_body = world.rigid_body_set.get(self.rigid_body_handle)?;
-        let velocity = rigid_body.linvel();
-        Some(Vec2::new(velocity.x, velocity.y))
+        self.speed.get().ok()
     }
     pub fn set_position(&self, position: Vec2) -> Option<()> {
-        let world = self.world.upgrade()?;
-        let mut world = world.borrow_mut();
-        let world = &mut *world;
-        let rigid_body = world.rigid_body_set.get_mut(self.rigid_body_handle)?;
-        rigid_body.set_translation(rapier2d::math::Vec2::new(position.x(), position.y()), true);
-        Some(())
+        self.position.set(position).ok()?;
+        access_rigid_body_mut(self, |_, rigid_body| {
+            rigid_body.set_translation(to_rapier(position), true);
+        })
+        .ok()
     }
     pub fn set_velocity(&self, velocity: Vec2) -> Option<()> {
-        let world = self.world.upgrade()?;
-        let mut world = world.borrow_mut();
-        let world = &mut *world;
-        let rigid_body = world.rigid_body_set.get_mut(self.rigid_body_handle)?;
-        rigid_body.set_linvel(rapier2d::math::Vec2::new(velocity.x(), velocity.y()), true);
-        Some(())
+        self.speed.set(velocity).ok()?;
+        access_rigid_body_mut(self, |_, rigid_body| {
+            rigid_body.set_linvel(to_rapier(velocity), true);
+        })
+        .ok()
     }
 }
 
 struct ExtraObjectData {
+    object: AnyUserData,
     tags: vectarine_plugin_sdk::mlua::Table,
     extra_custom: vectarine_plugin_sdk::mlua::Value,
 }
-
-auto_impl_lua_take!(Object2, Object2);
 
 pub fn setup_physics_api(
     lua: &vectarine_plugin_sdk::mlua::Lua,
@@ -171,9 +212,13 @@ pub fn setup_physics_api(
 
     // MARK: World2 fn
     add_fn_to_table(lua, &physics_module, "newWorld2", {
-        move |_, (gravity, camera): (Option<Vec2>, vectarine_plugin_sdk::mlua::Value)| {
+        move |lua, (gravity, camera): (Option<SharedVec2>, vectarine_plugin_sdk::mlua::Value)| {
             let camera = if camera.is_nil() { None } else { Some(camera) };
-            let world = PhysicsWorld2::new(camera, gravity.unwrap_or(Vec2::new(0.0, 0.0)))?;
+            let gravity = match gravity {
+                Some(gravity) => gravity,
+                None => SharedVec2::new(lua, Vec2::zero())?,
+            };
+            let world = PhysicsWorld2::new(camera, gravity)?;
             Ok(LuaPhysicsWorld2(Rc::new(RefCell::new(world))))
         }
     });
@@ -195,8 +240,8 @@ pub fn setup_physics_api(
             }
             Ok(())
         });
-        registry.add_field_method_get("gravity", |_, world| Ok(world.0.borrow().gravity));
-        registry.add_field_method_set("gravity", |_, world, gravity: Vec2| {
+        registry.add_field_method_get("gravity", |_, world| Ok(world.0.borrow().gravity.clone()));
+        registry.add_field_method_set("gravity", |_, world, gravity: SharedVec2| {
             world.0.borrow_mut().gravity = gravity;
             Ok(())
         });
@@ -207,8 +252,9 @@ pub fn setup_physics_api(
             let physics_hooks = ();
             let event_handler = ();
 
-            let rapier_gravity = rapier2d::math::Vec2::new(world.gravity.x(), world.gravity.y());
+            let rapier_gravity = to_rapier(world.gravity.get()?);
             world.integration_parameters.dt = dt;
+            world.push_shared_vectors()?;
 
             world.physics_pipeline.step(
                 rapier_gravity,
@@ -224,11 +270,11 @@ pub fn setup_physics_api(
                 &physics_hooks,
                 &event_handler,
             );
-            Ok(())
+            world.pull_shared_vectors()
         });
 
         registry.add_method_mut("createObject", {
-            move |_,
+            move |lua,
                   lua_world,
                   (position, mass, maybe_collider, tags, body_type): (
                 Vec2,
@@ -269,13 +315,17 @@ pub fn setup_physics_api(
                     &mut world.rigid_body_set,
                 );
 
-                let object = Object2 {
+                // The position is copied: objects created from the same vector must not move together.
+                let object = lua.create_any_userdata(Object2 {
                     rigid_body_handle: body_handle,
                     world: Rc::downgrade(&lua_world.0),
-                };
+                    position: SharedVec2::new(lua, position)?,
+                    speed: SharedVec2::new(lua, Vec2::zero())?,
+                })?;
                 world.extras.insert(
                     body_handle,
                     ExtraObjectData {
+                        object: object.clone(),
                         tags,
                         extra_custom: vectarine_plugin_sdk::mlua::Nil,
                     },
@@ -284,8 +334,7 @@ pub fn setup_physics_api(
             }
         });
 
-        // We pass object directly here because we WANT to take ownership (the object is invalid afterwards)
-        registry.add_method_mut("removeObject", |_, world, object: Object2| {
+        registry.add_method_mut("removeObject", |_, world, object: UserDataRef<Object2>| {
             let mut world = world.0.borrow_mut();
             let world = &mut *world;
             world.extras.remove(&object.rigid_body_handle);
@@ -318,10 +367,7 @@ pub fn setup_physics_api(
                                 .any(|(_, object_tag)| object_tag == *queried_tag)
                         })
                     })
-                    .map(|(&handle, _)| Object2 {
-                        rigid_body_handle: handle,
-                        world: Rc::downgrade(&lua_world.0),
-                    })
+                    .map(|(_, extra)| extra.object.clone())
                     .collect::<Vec<_>>();
                 Ok(objects)
             },
@@ -341,11 +387,7 @@ pub fn setup_physics_api(
                 let matches =
                     query_pipeline.intersect_point(rapier2d::math::Vec2::new(point.x(), point.y()));
                 Ok(matches
-                    .filter_map(|m| m.1.parent())
-                    .map(|parent| Object2 {
-                        rigid_body_handle: parent,
-                        world: Rc::downgrade(&lua_world.0),
-                    })
+                    .filter_map(|m| world.object(m.1.parent()?))
                     .collect::<Vec<_>>())
             }
         });
@@ -373,11 +415,7 @@ pub fn setup_physics_api(
                 let matches = query_pipeline.intersect_shape(shape_pos, &shape);
 
                 Ok(matches
-                    .filter_map(|m| m.1.parent())
-                    .map(|parent| Object2 {
-                        rigid_body_handle: parent,
-                        world: Rc::downgrade(&lua_world.0),
-                    })
+                    .filter_map(|m| world.object(m.1.parent()?))
                     .collect::<Vec<_>>())
             }
         });
@@ -400,11 +438,7 @@ pub fn setup_physics_api(
                     query_pipeline.intersect_ray(ray, max_length.unwrap_or(10000.0), true);
                 Ok(matches
                     .filter_map(|(_, collider, intersection)| {
-                        let parent = collider.parent()?;
-                        let o = Object2 {
-                            rigid_body_handle: parent,
-                            world: Rc::downgrade(&lua_world.0),
-                        };
+                        let o = world.object(collider.parent()?)?;
                         let table = lua.create_table().ok()?;
                         table.raw_set("object", o).ok()?;
                         table
@@ -434,7 +468,7 @@ pub fn setup_physics_api(
 
         // MARK: Joint2 fn
         registry.add_method_mut("createDistanceJoint", {
-            move |_, lua_world, (object1, object2): (Object2, Object2)| {
+            move |_, lua_world, (object1, object2): (UserDataRef<Object2>, UserDataRef<Object2>)| {
                 let mut world = lua_world.0.borrow_mut();
                 let world = &mut *world;
                 let joint = RevoluteJointBuilder::new()
@@ -479,9 +513,8 @@ pub fn setup_physics_api(
                     "Joint is invalid".to_string(),
                 ));
             };
-            Ok(Object2 {
-                rigid_body_handle: j.body1(),
-                world: joint.world.clone(),
+            world.object(j.body1()).ok_or_else(|| {
+                vectarine_plugin_sdk::mlua::Error::RuntimeError("Joint is invalid".to_string())
             })
         });
         registry.add_method_mut("getObject2", |_, joint, (): ()| {
@@ -497,9 +530,8 @@ pub fn setup_physics_api(
                     "Joint is invalid".to_string(),
                 ));
             };
-            Ok(Object2 {
-                rigid_body_handle: j.body2(),
-                world: joint.world.clone(),
+            world.object(j.body2()).ok_or_else(|| {
+                vectarine_plugin_sdk::mlua::Error::RuntimeError("Joint is invalid".to_string())
             })
         });
     })?;
@@ -618,29 +650,21 @@ pub fn setup_physics_api(
 
     // MARK: Object2 fn
     lua.register_userdata_type::<Object2>(|registry| {
-        registry.add_field_method_get("position", |_, object| {
-            let translation: rapier2d::math::Vec2 =
-                access_rigid_body_mut(object, |_, rigid_body| rigid_body.translation())?;
-            let result = Vec2::new(translation.x, translation.y);
-            Ok(result)
-        });
-        registry.add_field_method_set("position", |_, object, position: Vec2| {
+        registry.add_field_method_get("position", |_, object| Ok(object.position.clone()));
+        registry.add_field_method_set("position", |_, object, position: SharedVec2| {
+            let value = position.get()?;
+            object.position = position;
             access_rigid_body_mut(object, |_, rigid_body| {
-                rigid_body
-                    .set_translation(rapier2d::math::Vec2::new(position.x(), position.y()), true);
-            })?;
-            Ok(())
+                rigid_body.set_translation(to_rapier(value), true);
+            })
         });
-        registry.add_field_method_get("speed", |_, object| {
-            let speed = access_rigid_body_mut(object, |_, rigid_body| rigid_body.linvel())?;
-            let result = Vec2::new(speed.x, speed.y);
-            Ok(result)
-        });
-        registry.add_field_method_set("speed", |_, object, speed: Vec2| {
+        registry.add_field_method_get("speed", |_, object| Ok(object.speed.clone()));
+        registry.add_field_method_set("speed", |_, object, speed: SharedVec2| {
+            let value = speed.get()?;
+            object.speed = speed;
             access_rigid_body_mut(object, |_, rigid_body| {
-                rigid_body.set_linvel(rapier2d::math::Vec2::new(speed.x(), speed.y()), true);
-            })?;
-            Ok(())
+                rigid_body.set_linvel(to_rapier(value), true);
+            })
         });
         registry.add_field_method_get("rotation", |_, object| {
             access_rigid_body_mut(object, |_, rigid_body| rigid_body.rotation().angle())
@@ -802,10 +826,7 @@ pub fn setup_physics_api(
                 touching_objects.dedup();
                 touching_objects
                     .iter()
-                    .map(|handle| Object2 {
-                        rigid_body_handle: *handle,
-                        world: object.world.clone(),
-                    })
+                    .filter_map(|handle| world.object(*handle))
                     .collect::<Vec<_>>()
             })?;
             Ok(touching_objects)
@@ -937,4 +958,60 @@ where
         ));
     };
     Ok(f(extras))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{path::Path, rc::Rc};
+
+    use vectarine_plugin_sdk::mlua::{Lua, Result};
+
+    use crate::{game_resource::ResourceManager, io::dummyfs::DummyFileSystem};
+
+    #[test]
+    fn position_and_speed_are_shared() -> Result<()> {
+        let lua = Lua::new();
+        let resources = Rc::new(ResourceManager::new(
+            Box::new(DummyFileSystem),
+            Path::new(""),
+        ));
+        let globals = lua.globals();
+        globals.set("vec", crate::lua_env::lua_vec2::setup_vec_api(&lua)?)?;
+        globals.set("physics", super::setup_physics_api(&lua, &resources)?)?;
+        lua.load(
+            r#"
+            local world = physics.newWorld2(vec.V2(0, -10))
+            local spawn = vec.V2(0, 0)
+            local box = world:createObject(spawn, 1, physics.newRectangleCollider(vec.V2(1, 1)), { "box" }, "dynamic")
+            assert(rawequal(world:getObjects({ "box" })[1], box))
+
+            local p = box.position
+            p.x = 5
+            world:step(1 / 60)
+            assert(rawequal(box.position, p) and p.x == 5 and p.y < 0)
+            assert(spawn.x == 0 and spawn.y == 0)
+            assert(rawequal(world:getObjectsAtPoint(p)[1], box))
+
+            box.speed.x = 60
+            world:step(1 / 60)
+            assert(box.position.x > 5.9 and box.position.x < 6.1)
+
+            local a = vec.V2(100, 0)
+            box.position = a
+            assert(box.position.x == 100)
+            a.x = 200
+            world:step(1 / 60)
+            assert(rawequal(box.position, a) and a.x > 200)
+
+            box.speed = vec.ZERO2
+            box.speed.x = 1
+            assert(vec.ZERO2.x == 0)
+
+            world:removeObject(box)
+            assert(#world:getObjects() == 0)
+            assert(not pcall(function() return box.rotation end))
+            "#,
+        )
+        .exec()
+    }
 }

@@ -123,9 +123,9 @@ pub fn setup_canvas_api(
                         uniforms.add(&name, UniformValue::Float(n as f32));
                     }
                     vectarine_plugin_sdk::mlua::Value::UserData(ud) => {
-                        if let Ok(vec2) = ud.borrow::<Vec2>() {
+                        if let Ok(vec2) = Vec2::from_userdata(&ud) {
                             uniforms.add(&name, UniformValue::Vec2([vec2.x(), vec2.y()]));
-                        } else if let Ok(vec4) = ud.borrow::<Vec4>() {
+                        } else if let Ok(vec4) = Vec4::from_userdata(&ud) {
                             uniforms.add(
                                 &name,
                                 UniformValue::Vec4([vec4.x(), vec4.y(), vec4.z(), vec4.w()]),

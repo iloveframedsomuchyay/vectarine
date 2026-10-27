@@ -82,8 +82,8 @@ fn parse_fastlist_or_vec_with_cb<F, T>(ud: mlua::AnyUserData, f: F) -> mlua::Res
 where
     F: Fn(&FastListOrVec) -> mlua::Result<T>,
 {
-    if let Ok(vec) = ud.borrow::<Vec2>() {
-        f(&FastListOrVec::Vec(*vec))
+    if let Ok(vec) = Vec2::from_userdata(&ud) {
+        f(&FastListOrVec::Vec(vec))
     } else if let Ok(list) = ud.borrow::<FastList>() {
         f(&FastListOrVec::List(&list))
     } else {

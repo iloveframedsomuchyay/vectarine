@@ -1,24 +1,11 @@
 use noise::{NoiseFn, Simplex, Worley};
 
-use crate::math::Vect;
+use crate::{
+    lua_env::lua_vect::{AsVect, Const, add_constant_setters},
+    math::Vect,
+};
 
 pub type Vec4 = Vect<4>;
-
-impl vectarine_plugin_sdk::mlua::FromLua for Vec4 {
-    fn from_lua(
-        value: vectarine_plugin_sdk::mlua::Value,
-        _: &vectarine_plugin_sdk::mlua::Lua,
-    ) -> vectarine_plugin_sdk::mlua::Result<Self> {
-        match value {
-            vectarine_plugin_sdk::mlua::Value::UserData(ud) => Ok(*ud.borrow::<Self>()?),
-            _ => Err(vectarine_plugin_sdk::mlua::Error::FromLuaConversionError {
-                from: value.type_name(),
-                to: "Vec4".to_string(),
-                message: Some("expected Vec4 userdata".to_string()),
-            }),
-        }
-    }
-}
 
 impl Vec4 {
     #[inline(always)]
@@ -84,129 +71,113 @@ impl Vec4 {
     }
 }
 
+/// The color names are aliases: `r` is `x`, `g` is `y`, etc.
+const FIELDS: [[&str; 2]; 4] = [["x", "r"], ["y", "g"], ["z", "b"], ["w", "a"]];
+
+fn add_vec4_fields<T: AsVect<4>, F: vectarine_plugin_sdk::mlua::UserDataFields<T>>(fields: &mut F) {
+    for (index, names) in FIELDS.into_iter().enumerate() {
+        for name in names {
+            fields.add_field_method_get(name, move |_, v| Ok(v.vect().0[index]));
+        }
+    }
+}
+
+fn add_vec4_methods<T: AsVect<4>, M: vectarine_plugin_sdk::mlua::UserDataMethods<T>>(
+    methods: &mut M,
+) {
+    methods.add_method("length", |_, vec, ()| Ok(vec.vect().length()));
+    methods.add_method("lengthSq", |_, vec, ()| Ok(vec.vect().length_sq()));
+    methods.add_method("distance", |_, vec, (other,): (Vec4,)| {
+        Ok((vec.vect() - other).length())
+    });
+    methods.add_method("scale", |_, vec, (k,): (f32,)| Ok(vec.vect() * k));
+    methods.add_method("qmul", |_, vec, (other,): (Vec4,)| {
+        Ok(vec.vect().qmul(other))
+    });
+    methods.add_method("dot", |_, vec, (other,): (Vec4,)| {
+        Ok(vec.vect().dot(&other))
+    });
+    methods.add_method("normalized", |_, vec, ()| Ok(vec.vect().normalized()));
+    methods.add_method("round", |_, vec, (digits_of_precision,): (Option<u32>,)| {
+        Ok(vec.vect().round(digits_of_precision))
+    });
+    methods.add_method("abs", |_, vec, ()| Ok(vec.vect().abs()));
+    methods.add_method("floor", |_, vec, ()| Ok(vec.vect().floor()));
+    methods.add_method("ceil", |_, vec, ()| Ok(vec.vect().ceil()));
+    methods.add_method("max", |_, vec, (other,): (Vec4,)| Ok(vec.vect().max(other)));
+    methods.add_method("min", |_, vec, (other,): (Vec4,)| Ok(vec.vect().min(other)));
+    methods.add_method("lerp", |_, vec, (other, k): (Vec4, f32)| {
+        Ok(vec.vect().lerp(other, k))
+    });
+
+    let simplex = Simplex::new(noise::Simplex::DEFAULT_SEED);
+    let worley = Worley::new(noise::Worley::DEFAULT_SEED);
+    methods.add_method("noise", move |_, vec, ()| {
+        Ok(simplex.get(vec.vect().0.map(|component| component as f64)))
+    });
+    methods.add_method("worleyNoise", move |_, vec, ()| {
+        Ok(worley.get(vec.vect().0.map(|component| component as f64)))
+    });
+
+    methods.add_method("sign", |_, vec, ()| Ok(vec.vect().sign()));
+    methods.add_meta_function(
+        vectarine_plugin_sdk::mlua::MetaMethod::Add,
+        |_, (vec, other): (Vec4, Vec4)| Ok(vec + other),
+    );
+    methods.add_meta_function(
+        vectarine_plugin_sdk::mlua::MetaMethod::Sub,
+        |_, (vec, other): (Vec4, Vec4)| Ok(vec - other),
+    );
+    methods.add_meta_method(
+        vectarine_plugin_sdk::mlua::MetaMethod::Unm,
+        #[inline(always)]
+        |_, vec, ()| Ok(Vect(vec.vect().0.map(|component| -component))),
+    );
+    methods.add_meta_function(
+        vectarine_plugin_sdk::mlua::MetaMethod::Mul,
+        |_, (vec, other): (Vec4, Vec4)| Ok(vec * other),
+    );
+    methods.add_meta_function(
+        vectarine_plugin_sdk::mlua::MetaMethod::Div,
+        #[inline(always)]
+        |_, (vec, other): (Vec4, Vec4)| Ok(vec / other),
+    );
+    methods.add_meta_method(
+        vectarine_plugin_sdk::mlua::MetaMethod::ToString,
+        |_, vec, _any: vectarine_plugin_sdk::mlua::Value| {
+            let vec = vec.vect();
+            Ok(format!(
+                "V4({}, {}, {}, {})",
+                vec.0[0], vec.0[1], vec.0[2], vec.0[3]
+            ))
+        },
+    );
+}
+
 impl vectarine_plugin_sdk::mlua::UserData for Vec4 {
     fn add_fields<F: vectarine_plugin_sdk::mlua::UserDataFields<Self>>(fields: &mut F) {
-        fields.add_field_method_get("x", |_, v| Ok(v.0[0]));
-        fields.add_field_method_get("y", |_, v| Ok(v.0[1]));
-        fields.add_field_method_get("z", |_, v| Ok(v.0[2]));
-        fields.add_field_method_get("w", |_, v| Ok(v.0[3]));
-
-        // Field aliases for colors
-        fields.add_field_method_get("r", |_, v| Ok(v.0[0]));
-        fields.add_field_method_get("g", |_, v| Ok(v.0[1]));
-        fields.add_field_method_get("b", |_, v| Ok(v.0[2]));
-        fields.add_field_method_get("a", |_, v| Ok(v.0[3]));
-
-        fields.add_field_method_set("x", |_, vec, v| {
-            vec.0[0] = v;
-            Ok(())
-        });
-        fields.add_field_method_set("y", |_, vec, v| {
-            vec.0[1] = v;
-            Ok(())
-        });
-        fields.add_field_method_set("z", |_, vec, v| {
-            vec.0[2] = v;
-            Ok(())
-        });
-        fields.add_field_method_set("w", |_, vec, v| {
-            vec.0[3] = v;
-            Ok(())
-        });
-
-        // Field aliases for colors
-        fields.add_field_method_set("r", |_, vec, v| {
-            vec.0[0] = v;
-            Ok(())
-        });
-        fields.add_field_method_set("g", |_, vec, v| {
-            vec.0[1] = v;
-            Ok(())
-        });
-        fields.add_field_method_set("b", |_, vec, v| {
-            vec.0[2] = v;
-            Ok(())
-        });
-        fields.add_field_method_set("a", |_, vec, v| {
-            vec.0[3] = v;
-            Ok(())
-        });
+        add_vec4_fields(fields);
+        for (index, names) in FIELDS.into_iter().enumerate() {
+            for name in names {
+                fields.add_field_method_set(name, move |_, vec, v| {
+                    vec.0[index] = v;
+                    Ok(())
+                });
+            }
+        }
     }
     fn add_methods<M: vectarine_plugin_sdk::mlua::UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method("length", |_, vec, ()| Ok(vec.length()));
-        methods.add_method("lengthSq", |_, vec, ()| Ok(vec.length_sq()));
-        methods.add_method("distance", |_, vec, (other,): (Vec4,)| {
-            Ok((*vec - other).length())
-        });
-        methods.add_method("scale", |_, vec, (k,): (f32,)| Ok(*vec * k));
-        methods.add_method("qmul", |_, vec, (other,): (Vec4,)| Ok(vec.qmul(other)));
-        methods.add_method("dot", |_, vec, (other,): (Vec4,)| Ok(vec.dot(&other)));
-        methods.add_method("normalized", |_, vec, ()| Ok(vec.normalized()));
-        methods.add_method("round", |_, vec, (digits_of_precision,): (Option<u32>,)| {
-            Ok(vec.round(digits_of_precision))
-        });
-        methods.add_method("abs", |_, vec, ()| Ok(vec.abs()));
-        methods.add_method("floor", |_, vec, ()| Ok(vec.floor()));
-        methods.add_method("ceil", |_, vec, ()| Ok(vec.ceil()));
-        methods.add_method("max", |_, vec, (other,): (Vec4,)| Ok(vec.max(other)));
-        methods.add_method("min", |_, vec, (other,): (Vec4,)| Ok(vec.min(other)));
-        methods.add_method("lerp", |_, vec, (other, k): (Vec4, f32)| {
-            Ok(vec.lerp(other, k))
-        });
+        add_vec4_methods(methods);
+    }
+}
 
-        let simplex = Simplex::new(noise::Simplex::DEFAULT_SEED);
-        let worley = Worley::new(noise::Worley::DEFAULT_SEED);
-        methods.add_method("noise", move |_, vec, ()| {
-            let f64vec = [
-                vec.0[0] as f64,
-                vec.0[1] as f64,
-                vec.0[2] as f64,
-                vec.0[3] as f64,
-            ];
-            Ok(simplex.get(f64vec))
-        });
-        methods.add_method("worleyNoise", move |_, vec, ()| {
-            let f64vec = [
-                vec.0[0] as f64,
-                vec.0[1] as f64,
-                vec.0[2] as f64,
-                vec.0[3] as f64,
-            ];
-            Ok(worley.get(f64vec))
-        });
-
-        methods.add_method("sign", |_, vec, ()| Ok(vec.sign()));
-        methods.add_meta_function(
-            vectarine_plugin_sdk::mlua::MetaMethod::Add,
-            |_, (vec, other): (Vec4, Vec4)| Ok(vec + other),
-        );
-        methods.add_meta_function(
-            vectarine_plugin_sdk::mlua::MetaMethod::Sub,
-            |_, (vec, other): (Vec4, Vec4)| Ok(vec - other),
-        );
-        methods.add_meta_method(
-            vectarine_plugin_sdk::mlua::MetaMethod::Unm,
-            #[inline(always)]
-            |_, vec, ()| Ok(Vec4::new(-vec.0[0], -vec.0[1], -vec.0[2], -vec.0[3])),
-        );
-        methods.add_meta_function(
-            vectarine_plugin_sdk::mlua::MetaMethod::Mul,
-            |_, (vec, other): (Vec4, Vec4)| Ok(vec * other),
-        );
-        methods.add_meta_function(
-            vectarine_plugin_sdk::mlua::MetaMethod::Div,
-            #[inline(always)]
-            |_, (vec, other): (Vec4, Vec4)| Ok(vec / other),
-        );
-        methods.add_meta_method(
-            vectarine_plugin_sdk::mlua::MetaMethod::ToString,
-            |_, vec, _any: vectarine_plugin_sdk::mlua::Value| {
-                Ok(format!(
-                    "V4({}, {}, {}, {})",
-                    vec.0[0], vec.0[1], vec.0[2], vec.0[3]
-                ))
-            },
-        );
+impl vectarine_plugin_sdk::mlua::UserData for Const<Vec4> {
+    fn add_fields<F: vectarine_plugin_sdk::mlua::UserDataFields<Self>>(fields: &mut F) {
+        add_vec4_fields(fields);
+        add_constant_setters(fields, FIELDS.as_flattened());
+    }
+    fn add_methods<M: vectarine_plugin_sdk::mlua::UserDataMethods<Self>>(methods: &mut M) {
+        add_vec4_methods(methods);
     }
 }
 
@@ -253,35 +224,35 @@ pub fn setup_vec_api(
         })?,
     )?;
 
-    vec4_module.set("ZERO4", Vec4::zero())?;
+    vec4_module.set("ZERO4", Const(Vec4::zero()))?;
 
     // Default colors
-    vec4_module.set("BLACK", BLACK)?;
-    vec4_module.set("WHITE", WHITE)?;
-    vec4_module.set("TRANSPARENT", TRANSPARENT)?;
+    vec4_module.set("BLACK", Const(BLACK))?;
+    vec4_module.set("WHITE", Const(WHITE))?;
+    vec4_module.set("TRANSPARENT", Const(TRANSPARENT))?;
 
-    vec4_module.set("RED", RED)?;
-    vec4_module.set("GREEN", GREEN)?;
-    vec4_module.set("BLUE", BLUE)?;
+    vec4_module.set("RED", Const(RED))?;
+    vec4_module.set("GREEN", Const(GREEN))?;
+    vec4_module.set("BLUE", Const(BLUE))?;
 
-    vec4_module.set("YELLOW", YELLOW)?;
-    vec4_module.set("MAGENTA", MAGENTA)?;
-    vec4_module.set("CYAN", CYAN)?;
+    vec4_module.set("YELLOW", Const(YELLOW))?;
+    vec4_module.set("MAGENTA", Const(MAGENTA))?;
+    vec4_module.set("CYAN", Const(CYAN))?;
 
-    vec4_module.set("AZURE", AZURE)?;
-    vec4_module.set("ORANGE", ORANGE)?;
-    vec4_module.set("PURPLE", PURPLE)?;
-    vec4_module.set("SPRING", SPRING)?;
-    vec4_module.set("LIME", LIME)?;
-    vec4_module.set("PINK", PINK)?;
+    vec4_module.set("AZURE", Const(AZURE))?;
+    vec4_module.set("ORANGE", Const(ORANGE))?;
+    vec4_module.set("PURPLE", Const(PURPLE))?;
+    vec4_module.set("SPRING", Const(SPRING))?;
+    vec4_module.set("LIME", Const(LIME))?;
+    vec4_module.set("PINK", Const(PINK))?;
 
-    vec4_module.set("LIGHT_GRAY", LIGHT_GRAY)?;
-    vec4_module.set("DARK_GRAY", DARK_GRAY)?;
+    vec4_module.set("LIGHT_GRAY", Const(LIGHT_GRAY))?;
+    vec4_module.set("DARK_GRAY", Const(DARK_GRAY))?;
 
-    vec4_module.set("GRAY", GRAY)?;
-    vec4_module.set("DARK_RED", DARK_RED)?;
-    vec4_module.set("DARK_GREEN", DARK_GREEN)?;
-    vec4_module.set("DARK_BLUE", DARK_BLUE)?;
+    vec4_module.set("GRAY", Const(GRAY))?;
+    vec4_module.set("DARK_RED", Const(DARK_RED))?;
+    vec4_module.set("DARK_GREEN", Const(DARK_GREEN))?;
+    vec4_module.set("DARK_BLUE", Const(DARK_BLUE))?;
 
     Ok(vec4_module)
 }

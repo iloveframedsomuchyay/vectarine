@@ -23,6 +23,7 @@ pub mod lua_tile;
 pub mod lua_ui;
 pub mod lua_vec2;
 pub mod lua_vec4;
+pub mod lua_vect;
 
 use crate::async_handler::{AsyncLuaHandle, make_resource_future};
 use crate::console::{print_lua_error, print_warn};

@@ -1,6 +1,9 @@
 # TO-DO
 
-- [ ] Fix the camera/vector reference bug thing
+- [ ] Screenshot API
+  - [ ] Lua function to screenshot (probably just turn a canvas into a PNG)
+  - [ ] Button to screenshot in the editor
+  - [ ] Button to record a short gif in the editor
 - [ ] Android support
 - [ ] Add a text input widget (to the best of your ability...)
 - [ ] Better heap info
@@ -18,10 +21,6 @@
 - [ ] Play/pause the project in the editor
 - [ ] Data files
 - [ ] Add a command palette to the editor
-- [ ] Screenshot API
-  - [ ] Lua function to screenshot (probably just turn a canvas into a PNG)
-  - [ ] Button to screenshot in the editor
-  - [ ] Button to record a short gif in the editor
 - [ ] Borderless window & better styling
   - [ ] See https://github.com/OlaProeis/Ferrite/ for how to do it using egui.
   - [ ] Borderless window
@@ -44,6 +43,7 @@
 
 # Done
 
+- [x] Fix the camera/vector reference bug thing
 - [x] When exporting, append the .vecta file to the .exe + a magic check sum. Have the runtime read itself to unpack this bundle.
   -> This allows users to distribute games as a single file (which self-decompresses)
 - [x] When creating a new project, allow to use a gallery project as a template
